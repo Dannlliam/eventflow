@@ -1,0 +1,54 @@
+# EventFlow Prometheus Configuration
+# Scrape configuration for the EventFlow backend monitoring.
+# This file should be mounted into a Prometheus container.
+
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+  # Attach these labels to any time series or alerts when communicating with
+  # external systems (federation, remote storage, Alertmanager)
+  external_labels:
+    monitor: 'eventflow'
+
+# Alertmanager configuration
+# alerting:
+#   alertmanagers:
+#   - static_configs:
+#     - targets:
+#       - alertmanager:9093
+
+# Rule files
+rule_files:
+  - 'alerts.yml'
+
+# Scrape configurations
+scrape_configs:
+  # EventFlow Backend Application Metrics
+  - job_name: 'eventflow-backend'
+    scrape_interval: 10s
+    metrics_path: '/actuator/prometheus'
+    static_configs:
+      - targets: ['backend:8080', 'localhost:8080']
+        labels:
+          service: 'eventflow-backend'
+          environment: 'production'
+
+  # PostgreSQL
+  - job_name: 'postgresql'
+    static_configs:
+      - targets: ['postgres-exporter:9187']
+
+  # Kafka
+  - job_name: 'kafka'
+    static_configs:
+      - targets: ['kafka-exporter:9308']
+
+# Custom scrape targets for EventFlow-specific endpoints
+  - job_name: 'eventflow-kafka-consumers'
+    scrape_interval: 30s
+    metrics_path: '/actuator/prometheus'
+    static_configs:
+      - targets: ['backend:8080']
+        labels:
+          group: 'kafka-consumer-metrics'

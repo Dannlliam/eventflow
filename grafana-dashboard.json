@@ -1,0 +1,232 @@
+{
+  "title": "EventFlow - Operational Dashboard",
+  "uid": "eventflow-operational",
+  "version": 1,
+  "schemaVersion": 36,
+  "timezone": "utc",
+  "refresh": "30s",
+  "panels": [
+    {
+      "title": "Notification Delivery Rate",
+      "type": "stat",
+      "gridPos": {"h": 4, "w": 4, "x": 0, "y": 0},
+      "targets": [{
+        "expr": "sum(rate(eventflow_notifications_delivered_total[5m])) / sum(rate(eventflow_notifications_ingested_total[5m])) * 100",
+        "legendFormat": "Delivery Rate"
+      }],
+      "options": {
+        "colorMode": "background",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "horizontal",
+        "reduceOptions": {
+          "calcs": ["mean"]
+        },
+        "textMode": "auto"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {"color": "red", "value": null},
+              {"color": "yellow", "value": 95},
+              {"color": "green", "value": 99}
+            ]
+          },
+          "max": 100,
+          "min": 0
+        }
+      }
+    },
+    {
+      "title": "Notifications Ingested (5m rate)",
+      "type": "graph",
+      "gridPos": {"h": 8, "w": 8, "x": 0, "y": 4},
+      "targets": [{
+        "expr": "rate(eventflow_notifications_ingested_total[5m])",
+        "legendFormat": "Ingested"
+      }],
+      "options": {
+        "tooltip": {
+          "mode": "multi"
+        },
+        "legend": {
+          "displayMode": "table",
+          "placement": "right"
+        }
+      }
+    },
+    {
+      "title": "Delivery Status Breakdown",
+      "type": "piechart",
+      "gridPos": {"h": 8, "w": 8, "x": 8, "y": 4},
+      "targets": [
+        {"expr": "sum(eventflow_notifications_delivered_total)", "legendFormat": "Delivered"},
+        {"expr": "sum(eventflow_notifications_failed_total)", "legendFormat": "Failed"},
+        {"expr": "sum(eventflow_notifications_dlq_total)", "legendFormat": "DLQ"}
+      ],
+      "options": {
+        "displayLabels": ["name", "percent"],
+        "legend": {
+          "displayMode": "table",
+          "placement": "right"
+        },
+        "pieType": "pie",
+        "reduceOptions": {
+          "calcs": ["sum"]
+        }
+      }
+    },
+    {
+      "title": "Processing Latency (P50/P95/P99)",
+      "type": "graph",
+      "gridPos": {"h": 8, "w": 8, "x": 16, "y": 4},
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.50, rate(eventflow_notifications_processing_time_seconds_bucket[5m]))",
+          "legendFormat": "P50"
+        },
+        {
+          "expr": "histogram_quantile(0.95, rate(eventflow_notifications_processing_time_seconds_bucket[5m]))",
+          "legendFormat": "P95"
+        },
+        {
+          "expr": "histogram_quantile(0.99, rate(eventflow_notifications_processing_time_seconds_bucket[5m]))",
+          "legendFormat": "P99"
+        }
+      ],
+      "options": {
+        "tooltip": {
+          "mode": "multi"
+        },
+        "legend": {
+          "displayMode": "table",
+          "placement": "right"
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s"
+        }
+      }
+    },
+    {
+      "title": "Provider Dispatch Latency (P95)",
+      "type": "graph",
+      "gridPos": {"h": 6, "w": 8, "x": 0, "y": 12},
+      "targets": [{
+        "expr": "histogram_quantile(0.95, rate(eventflow_providers_dispatch_latency_seconds_bucket[5m]))",
+        "legendFormat": "P95 Dispatch Latency"
+      }],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s"
+        }
+      }
+    },
+    {
+      "title": "Provider Success Rate",
+      "type": "stat",
+      "gridPos": {"h": 6, "w": 4, "x": 8, "y": 12},
+      "targets": [{
+        "expr": "sum(rate(eventflow_providers_dispatches_succeeded_total[5m])) / sum(rate(eventflow_providers_dispatches_attempted_total[5m])) * 100"
+      }],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {"color": "red", "value": null},
+              {"color": "yellow", "value": 90},
+              {"color": "green", "value": 99}
+            ]
+          },
+          "max": 100,
+          "min": 0
+        }
+      }
+    },
+    {
+      "title": "API Request Rate",
+      "type": "graph",
+      "gridPos": {"h": 6, "w": 8, "x": 12, "y": 12},
+      "targets": [
+        {"expr": "rate(eventflow_api_requests_total[5m])", "legendFormat": "Total Requests"},
+        {"expr": "rate(eventflow_api_errors_total[5m])", "legendFormat": "Errors"},
+        {"expr": "rate(eventflow_api_ratelimit_hits_total[5m])", "legendFormat": "Rate Limited"}
+      ]
+    },
+    {
+      "title": "DLQ Messages (Total)",
+      "type": "stat",
+      "gridPos": {"h": 4, "w": 4, "x": 0, "y": 18},
+      "targets": [{
+        "expr": "sum(eventflow_notifications_dlq_total)",
+        "legendFormat": "Total DLQ"
+      }],
+      "fieldConfig": {
+        "defaults": {
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {"color": "green", "value": null},
+              {"color": "yellow", "value": 10},
+              {"color": "red", "value": 100}
+            ]
+          }
+        }
+      }
+    },
+    {
+      "title": "Payload Size Distribution (P95)",
+      "type": "graph",
+      "gridPos": {"h": 4, "w": 8, "x": 4, "y": 18},
+      "targets": [{
+        "expr": "histogram_quantile(0.95, rate(eventflow_notifications_payload_size_bytes_bucket[5m]))"
+      }],
+      "options": {},
+      "fieldConfig": {
+        "defaults": {
+          "unit": "bytes"
+        }
+      }
+    },
+    {
+      "title": "Kafka Consumer Lag",
+      "type": "graph",
+      "gridPos": {"h": 4, "w": 8, "x": 12, "y": 18},
+      "targets": [{
+        "expr": "kafka_consumer_lag{group='eventflow-processor-group'}"
+      }],
+      "fieldConfig": {
+        "defaults": {
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {"color": "green", "value": null},
+              {"color": "yellow", "value": 5000},
+              {"color": "red", "value": 10000}
+            ]
+          }
+        }
+      }
+    }
+  ],
+  "templating": {
+    "list": [
+      {
+        "name": "environment",
+        "type": "constant",
+        "label": "Environment",
+        "query": "production",
+        "current": {"text": "Production", "value": "production"}
+      }
+    ]
+  },
+  "links": [],
+  "tags": ["eventflow", "notifications"],
+  "editable": true
+}

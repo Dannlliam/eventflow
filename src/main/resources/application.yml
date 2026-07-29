@@ -1,0 +1,164 @@
+# EventFlow Application Configuration
+spring:
+  application:
+    name: eventflow-backend
+
+  # Database
+  datasource:
+    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:eventflow}
+    username: ${DB_USER:eventflow}
+    password: ${DB_PASSWORD:eventflow}
+    hikari:
+      maximum-pool-size: 9
+      minimum-idle: 3
+      connection-timeout: 3000
+      idle-timeout: 30000
+      max-lifetime: 600000
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    properties:
+      hibernate:
+        jdbc:
+          batch_size: 50
+          order_inserts: true
+          order_updates: true
+        format_sql: ${HIBERNATE_FORMAT_SQL:false}
+    open-in-view: false
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+    baseline-on-migrate: true
+
+  # Redis
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD:}
+      timeout: 2000ms
+      lettuce:
+        pool:
+          max-active: 16
+          max-idle: 8
+          min-idle: 4
+
+  # Cache (Caffeine L1)
+  cache:
+    type: caffeine
+    caffeine:
+      spec: maximumSize=10000,expireAfterWrite=5m
+
+  # Kafka
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+    properties:
+      schema.registry.url: ${KAFKA_SCHEMA_REGISTRY_URL:http://localhost:8081}
+      enable.idempotence: true
+      acks: all
+      min.insync.replicas: 2
+      retries: 2147483647
+      max.in.flight.requests.per.connection: 5
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: io.confluent.kafka.serializers.KafkaAvroSerializer
+      properties:
+        enable.idempotence: true
+    consumer:
+      group-id: eventflow-processor-group
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: io.confluent.kafka.serializers.KafkaAvroDeserializer
+      properties:
+        specific.avro.reader: true
+        isolation.level: read_committed
+        auto.offset.reset: earliest
+        enable.auto.commit: false
+      max-poll-records: 500
+
+  # Security
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          jws-algorithms: RS256
+          issuer-uri: ${JWT_ISSUER_URI:http://localhost:8080}
+
+  # GraphQL
+  graphql:
+    graphiql:
+      enabled: ${GRAPHQL_PLAYGROUND_ENABLED:true}
+    schema:
+      printer:
+        enabled: true
+
+  # Jackson
+  jackson:
+    serialization:
+      write-dates-as-timestamps: false
+    default-property-inclusion: non_null
+    date-format: yyyy-MM-dd'T'HH:mm:ss'Z'
+    time-zone: UTC
+
+# Actuator / Observability
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
+      base-path: /actuator
+  endpoint:
+    health:
+      show-details: when-authorized
+      show-components: when-authorized
+      probes:
+        enabled: true
+      group:
+        liveness:
+          include: livenessState
+        readiness:
+          include: readinessState,redis,kafka,db
+  metrics:
+    tags:
+      application: eventflow-backend
+    export:
+      prometheus:
+        enabled: true
+  tracing:
+    sampling:
+      probability: 1.0
+    propagation:
+      type: W3C
+
+# Server
+server:
+  port: 8080
+  compression:
+    enabled: true
+    mime-types: application/json,application/graphql-response+json
+
+# EventFlow Specific
+eventflow:
+  retry:
+    max-attempts: ${EVENTFLOW_MAX_RETRY_ATTEMPTS:5}
+    base-delay-ms: 60000
+    multiplier: 5
+    jitter-percentage: 0.20
+  dlq:
+    retention-days: ${EVENTFLOW_DLQ_RETENTION_DAYS:30}
+  rate-limit:
+    default-window-seconds: 60
+    default-max-requests: 1000
+  security:
+    api-key-header: Authorization
+    jwt:
+      jwks-uri: ${JWT_JWKS_URI:http://localhost:8080/.well-known/jwks.json}
+
+# Logging
+logging:
+  pattern:
+    console: '{"timestamp":"%d{yyyy-MM-dd''T''HH:mm:ss.SSS''Z''}","level":"%p","traceId":"%X{traceId}","spanId":"%X{spanId}","eventId":"%X{eventId}","workspaceId":"%X{workspaceId}","service":"eventflow-backend","thread":"%t","logger":"%c","message":"%m","exception":"%wEx"}%n'
+  level:
+    com.eventflow: ${LOG_LEVEL:DEBUG}
+    org.springframework: WARN
+    org.apache.kafka: WARN
+    com.zaxxer.hikari: WARN

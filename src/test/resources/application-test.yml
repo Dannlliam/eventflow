@@ -1,0 +1,38 @@
+# EventFlow Test Configuration
+# Uses Testcontainers for PostgreSQL, Redis, and Kafka
+
+spring:
+  datasource:
+    url: jdbc:tc:postgresql:16-alpine:///eventflow?TC_REUSABLE=true
+    driver-class-name: org.testcontainers.jdbc.ContainerDatabaseDriver
+    username: eventflow
+    password: eventflow
+    hikari:
+      maximum-pool-size: 5
+      connection-timeout: 3000
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+    properties:
+      hibernate:
+        jdbc:
+          batch_size: 10
+  flyway:
+    enabled: false
+  data:
+    redis:
+      host: ${TEST_REDIS_HOST:localhost}
+      port: ${TEST_REDIS_PORT:6379}
+  kafka:
+    bootstrap-servers: ${TEST_KAFKA_BOOTSTRAP:localhost:9092}
+    consumer:
+      auto-offset-reset: earliest
+    producer:
+      properties:
+        enable.idempotence: false
+
+logging:
+  level:
+    com.eventflow: DEBUG
+    org.testcontainers: WARN
+    org.springframework.test: WARN

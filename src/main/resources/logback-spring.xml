@@ -1,0 +1,93 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration>
+    <!-- EventFlow Structured Logging Configuration -->
+    <!-- Implements JSON logging for production, console for development -->
+
+    <!-- Spring Boot defaults -->
+    <include resource="org/springframework/boot/logging/logback/defaults.xml"/>
+
+    <!-- Console appender for local development -->
+    <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder>
+            <pattern>
+                %d{yyyy-MM-dd'T'HH:mm:ss.SSS'Z'} [%thread] %-5level %logger{36} - %msg%n
+            </pattern>
+        </encoder>
+    </appender>
+
+    <!-- JSON appender for production -->
+    <appender name="JSON" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder class="net.logstash.logback.encoder.LogstashEncoder">
+            <!-- Include MDC context -->
+            <includeMdc>true</includeMdc>
+            <!-- EventFlow-specific custom fields -->
+            <customFields>{"service":"eventflow-backend","version":"1.0.0"}</customFields>
+            <!-- Exclude certain MDC keys from the root object -->
+            <excludeMdcKeyName>requestPath</excludeMdcKeyName>
+            <excludeMdcKeyName>requestMethod</excludeMdcKeyName>
+            <fieldNames>
+                <timestamp>timestamp</timestamp>
+                <level>level</level>
+                <thread>thread</thread>
+                <logger>logger</logger>
+                <message>message</message>
+                <stackTrace>exception</stackTrace>
+                <mdc>context</mdc>
+            </fieldNames>
+        </encoder>
+    </appender>
+
+    <!-- Audit trail appender - writes to separate file for compliance -->
+    <appender name="AUDIT" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <file>logs/audit.log</file>
+        <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
+            <fileNamePattern>logs/audit.%d{yyyy-MM-dd}.log</fileNamePattern>
+            <maxHistory>90</maxHistory>
+            <totalSizeCap>1GB</totalSizeCap>
+        </rollingPolicy>
+        <encoder class="net.logstash.logback.encoder.LogstashEncoder">
+            <includeMdc>true</includeMdc>
+            <customFields>{"service":"eventflow-backend","type":"audit"}</customFields>
+        </encoder>
+    </appender>
+
+    <!-- DLQ monitoring appender -->
+    <appender name="DLQ" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <file>logs/dlq.log</file>
+        <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
+            <fileNamePattern>logs/dlq.%d{yyyy-MM-dd}.log</fileNamePattern>
+            <maxHistory>30</maxHistory>
+            <totalSizeCap>500MB</totalSizeCap>
+        </rollingPolicy>
+        <encoder>
+            <pattern>%d{ISO8601} | %-5level | %msg%n</pattern>
+        </encoder>
+    </appender>
+
+    <!-- Logger configurations -->
+    <logger name="com.eventflow.analytics.infrastructure.AuditingAspect" level="INFO" additivity="false">
+        <appender-ref ref="AUDIT"/>
+    </logger>
+
+    <logger name="com.eventflow.notification.infrastructure.DispatchResultConsumer" level="INFO" additivity="false">
+        <appender-ref ref="DLQ"/>
+    </logger>
+
+    <logger name="com.eventflow.notification.infrastructure.DispatchRequestedConsumer" level="INFO">
+        <appender-ref ref="DLQ"/>
+    </logger>
+
+    <!-- Root logger - JSON in production, console in development -->
+    <springProfile name="dev,default">
+        <root level="INFO">
+            <appender-ref ref="CONSOLE"/>
+        </root>
+    </springProfile>
+
+    <springProfile name="prod,staging">
+        <root level="WARN">
+            <appender-ref ref="JSON"/>
+        </root>
+    </springProfile>
+
+</configuration>

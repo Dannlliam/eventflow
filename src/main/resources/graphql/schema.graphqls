@@ -1,0 +1,285 @@
+# EventFlow GraphQL Schema
+# Used by the Admin Dashboard for administrative operations
+
+# ============================================================
+# QUERIES
+# ============================================================
+type Query {
+    """Get a single notification by ID"""
+    notification(id: ID!): Notification
+
+    """List notifications with cursor-based pagination"""
+    notifications(
+        filter: NotificationFilter,
+        first: Int! = 20,
+        after: String
+    ): NotificationConnection!
+
+    """Get analytics data"""
+    analytics(
+        startDate: String!,
+        endDate: String!,
+        channel: String,
+        workspaceId: String
+    ): AnalyticsData!
+
+    """Get workspace configuration"""
+    workspaceConfig: WorkspaceConfig!
+
+    """Get available templates"""
+    templates(filter: TemplateFilter): [Template!]!
+
+    """Get a single template by slug"""
+    template(slug: String!): Template
+
+    """Get provider configurations"""
+    providers(channel: String): [Provider!]!
+
+    """Get audit logs"""
+    auditLogs(
+        filter: AuditLogFilter,
+        first: Int! = 20,
+        after: String
+    ): AuditLogConnection!
+}
+
+# ============================================================
+# MUTATIONS
+# ============================================================
+type Mutation {
+    """Create or update a template"""
+    upsertTemplate(input: TemplateInput!): Template!
+
+    """Publish a new version of a template"""
+    publishTemplateVersion(
+        slug: String!,
+        body: String!,
+        subject: String
+    ): TemplateVersion!
+
+    """Replay a DLQ message back to the processing queue"""
+    replayDlqMessage(eventId: String!): Boolean!
+
+    """Save provider configuration"""
+    saveProviderConfig(input: ProviderInput!): Provider!
+
+    """Deactivate an API key"""
+    deactivateApiKey(keyId: ID!): Boolean!
+
+    """Generate a new API key"""
+    generateApiKey(description: String!): ApiKeyPayload!
+}
+
+# ============================================================
+# TYPES
+# ============================================================
+type Notification {
+    id: ID!
+    workspaceId: String!
+    channel: String!
+    recipient: RecipientInfo!
+    templateSlug: String
+    payload: JSON
+    metadata: JSON
+    status: String!
+    attemptCount: Int!
+    nextRetryAt: String
+    sentAt: String
+    deliveredAt: String
+    createdAt: String!
+    updatedAt: String!
+    events: [NotificationEvent!]!
+}
+
+type RecipientInfo {
+    email: String
+    phone: String
+    deviceToken: String
+    webhookUrl: String
+}
+
+type NotificationEvent {
+    id: ID!
+    eventType: String!
+    providerResponse: String
+    errorMessage: String
+    createdAt: String!
+}
+
+type NotificationConnection {
+    edges: [NotificationEdge!]!
+    pageInfo: PageInfo!
+}
+
+type NotificationEdge {
+    node: Notification!
+    cursor: String!
+}
+
+type PageInfo {
+    hasNextPage: Boolean!
+    endCursor: String
+    totalCount: Int
+}
+
+type AnalyticsData {
+    totalSent: Int!
+    totalDelivered: Int!
+    totalFailed: Int!
+    totalDlq: Int!
+    deliveryRate: Float!
+    dailyStats: [DailyStat!]!
+    channelBreakdown: [ChannelBreakdown!]!
+    topErrors: [ErrorStat!]!
+}
+
+type DailyStat {
+    date: String!
+    channel: String!
+    sent: Int!
+    delivered: Int!
+    failed: Int!
+    dlq: Int!
+}
+
+type ChannelBreakdown {
+    channel: String!
+    count: Int!
+    percentage: Float!
+}
+
+type ErrorStat {
+    errorMessage: String!
+    count: Int!
+}
+
+type Template {
+    id: ID!
+    slug: String!
+    channel: String!
+    description: String
+    activeVersion: TemplateVersion
+    versions: [TemplateVersion!]!
+    createdAt: String!
+    updatedAt: String!
+}
+
+type TemplateVersion {
+    id: ID!
+    version: Int!
+    channel: String!
+    subjectTemplate: String
+    bodyTemplate: String!
+    isActive: Boolean!
+    createdAt: String!
+}
+
+type Provider {
+    id: ID!
+    name: String!
+    providerType: String!
+    channel: String!
+    isPrimary: Boolean!
+    enabled: Boolean!
+    rateLimit: Int!
+    settings: JSON
+    createdAt: String!
+}
+
+type WorkspaceConfig {
+    apiKeys: [ApiKey!]!
+    webhookSecrets: [WebhookSecret!]!
+}
+
+type ApiKey {
+    id: ID!
+    keyPrefix: String!
+    description: String
+    active: Boolean!
+    lastUsedAt: String
+    createdAt: String!
+}
+
+type ApiKeyPayload {
+    id: ID!
+    keyPrefix: String!
+    fullKey: String!
+    description: String
+    createdAt: String!
+}
+
+type WebhookSecret {
+    id: ID!
+    label: String!
+    createdAt: String!
+}
+
+type AuditLog {
+    id: ID!
+    userId: String!
+    action: String!
+    entityType: String
+    entityId: String
+    changes: JSON
+    ipAddress: String
+    createdAt: String!
+}
+
+type AuditLogConnection {
+    edges: [AuditLogEdge!]!
+    pageInfo: PageInfo!
+}
+
+type AuditLogEdge {
+    node: AuditLog!
+    cursor: String!
+}
+
+# ============================================================
+# INPUTS
+# ============================================================
+input NotificationFilter {
+    status: String
+    channel: String
+    workspaceId: String
+    dateFrom: String
+    dateTo: String
+    templateSlug: String
+}
+
+input TemplateFilter {
+    channel: String
+    search: String
+}
+
+input TemplateInput {
+    slug: String!
+    channel: String!
+    description: String
+    bodyTemplate: String!
+    subjectTemplate: String
+}
+
+input ProviderInput {
+    name: String!
+    providerType: String!
+    channel: String!
+    isPrimary: Boolean
+    credentials: JSON!
+    settings: JSON
+    rateLimit: Int
+}
+
+input AuditLogFilter {
+    userId: String
+    action: String
+    entityType: String
+    dateFrom: String
+    dateTo: String
+}
+
+# ============================================================
+# SCALARS
+# ============================================================
+"""JSON scalar type for dynamic data"""
+scalar JSON

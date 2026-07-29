@@ -1,0 +1,137 @@
+# EventFlow Alerting Rules
+# Prometheus alerting rules for monitoring the EventFlow platform.
+
+groups:
+  - name: eventflow-backend
+    interval: 30s
+    rules:
+
+      # --- Notification Delivery Alerts ---
+      - alert: HighDeliveryFailureRate
+        expr: |
+          rate(eventflow_notifications_failed_total[5m])
+          /
+          (rate(eventflow_notifications_ingested_total[5m]) + 0.001)
+          > 0.05
+        for: 5m
+        labels:
+          severity: critical
+          team: sre
+        annotations:
+          summary: "High notification delivery failure rate"
+          description: "Delivery failure rate is {{ $value | humanizePercentage }} over the last 5 minutes (threshold: 5%)"
+
+      - alert: HighDlqRate
+        expr: |
+          rate(eventflow_notifications_dlq_total[15m])
+          > 0.1
+        for: 5m
+        labels:
+          severity: warning
+          team: sre
+        annotations:
+          summary: "High DLQ rate detected"
+          description: "Notifications are being routed to DLQ at a rate of {{ $value }} per second over the last 15 minutes"
+
+      - alert: NotificationProcessingLatencyHigh
+        expr: |
+          histogram_quantile(0.95,
+            rate(eventflow_notifications_processing_time_seconds_bucket[5m])
+          ) > 30
+        for: 5m
+        labels:
+          severity: warning
+          team: sre
+        annotations:
+          summary: "High notification processing latency"
+          description: "P95 notification processing latency is {{ $value }}s (threshold: 30s)"
+
+      # --- Provider Alerts ---
+      - alert: ProviderDispatchFailing
+        expr: |
+          rate(eventflow_providers_dispatches_failed_total[5m])
+          /
+          (rate(eventflow_providers_dispatches_attempted_total[5m]) + 0.001)
+          > 0.1
+        for: 5m
+        labels:
+          severity: critical
+          team: sre
+        annotations:
+          summary: "Provider dispatch failure rate high"
+          description: "Provider dispatch failure rate is {{ $value | humanizePercentage }} over the last 5 minutes"
+
+      - alert: ProviderDispatchLatencyHigh
+        expr: |
+          histogram_quantile(0.95,
+            rate(eventflow_providers_dispatch_latency_seconds_bucket[5m])
+          ) > 10
+        for: 5m
+        labels:
+          severity: warning
+          team: sre
+        annotations:
+          summary: "High provider dispatch latency"
+          description: "P95 provider dispatch latency is {{ $value }}s (threshold: 10s)"
+
+      # --- API Rate Limiting Alerts ---
+      - alert: HighRateLimitHits
+        expr: |
+          rate(eventflow_api_ratelimit_hits_total[5m])
+          > 5
+        for: 5m
+        labels:
+          severity: warning
+          team: platform
+        annotations:
+          summary: "High rate limiting activity"
+          description: "Rate limit being hit at {{ $value }} per second. Consider increasing limits or investigating abusive clients."
+
+      # --- Kafka Consumer Alerts ---
+      - alert: KafkaConsumerLagHigh
+        expr: |
+          kafka_consumer_lag > 10000
+        for: 5m
+        labels:
+          severity: critical
+          team: sre
+        annotations:
+          summary: "Kafka consumer lag is high"
+          description: "Consumer lag is {{ $value }} messages behind. Processing may be falling behind."
+
+      # --- System Health Alerts ---
+      - alert: BackendDown
+        expr: up{job="eventflow-backend"} == 0
+        for: 1m
+        labels:
+          severity: critical
+          team: sre
+        annotations:
+          summary: "EventFlow backend is down"
+          description: "The backend service has been unreachable for more than 1 minute"
+
+      - alert: HighErrorRate
+        expr: |
+          rate(eventflow_api_errors_total[5m])
+          /
+          (rate(eventflow_api_requests_total[5m]) + 0.001)
+          > 0.1
+        for: 5m
+        labels:
+          severity: warning
+          team: sre
+        annotations:
+          summary: "High API error rate"
+          description: "API error rate is {{ $value | humanizePercentage }} over the last 5 minutes"
+
+      # --- Database Alerts ---
+      - alert: DatabaseConnectionPoolExhausted
+        expr: |
+          hikaricp_connections_active / hikaricp_connections_max > 0.8
+        for: 5m
+        labels:
+          severity: warning
+          team: sre
+        annotations:
+          summary: "Database connection pool is nearly exhausted"
+          description: "{{ $value | humanizePercentage }} of database connections are in use"
