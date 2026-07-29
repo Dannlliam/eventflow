@@ -12,12 +12,18 @@ import java.util.regex.Pattern;
 public record EmailAddress(String value) {
 
     private static final Pattern EMAIL_PATTERN =
-        Pattern.compile("^[A-Za-z0-9+_.-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}$");
+        Pattern.compile("^[A-Za-z0-9+_.-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{1,}$");
 
     public EmailAddress {
-        Objects.requireNonNull(value, "Email must not be null");
-        String trimmed = value.trim().toLowerCase();
-        if (!EMAIL_PATTERN.matcher(trimmed).matches()) {
+        if (value == null) {
+            throw new DomainValidationException(
+                "INVALID_EMAIL",
+                "Email must not be null",
+                "email"
+            );
+        }
+        String lower = value.toLowerCase();
+        if (lower.isEmpty() || !EMAIL_PATTERN.matcher(lower).matches()) {
             throw new DomainValidationException(
                 "INVALID_EMAIL",
                 "Invalid email address format: '" + value + "'",

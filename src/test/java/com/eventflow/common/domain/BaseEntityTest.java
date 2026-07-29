@@ -40,12 +40,13 @@ class BaseEntityTest {
 
     @Test
     @DisplayName("should update updatedAt and increment version on markUpdated")
-    void markUpdated_UpdatesTimestampAndVersion() {
+    void markUpdated_UpdatesTimestampAndVersion() throws InterruptedException {
         TestEntity entity = new TestEntity();
         Instant originalUpdatedAt = entity.getUpdatedAt();
         long originalVersion = entity.getVersion();
 
-        // Small delay to ensure time difference
+        // Small delay to ensure different timestamp
+        Thread.sleep(1);
         entity.markUpdated();
 
         assertNotEquals(originalUpdatedAt, entity.getUpdatedAt());

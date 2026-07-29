@@ -7,6 +7,7 @@ import java.security.SecureRandom;
 import java.time.Instant;
 import java.util.Base64;
 import java.util.HexFormat;
+import java.util.Objects;
 import java.util.UUID;
 
 /**
@@ -28,7 +29,7 @@ public class ApiKey extends BaseEntity {
 
     public ApiKey(UUID workspaceId, String description) {
         super();
-        this.workspaceId = workspaceId;
+        this.workspaceId = Objects.requireNonNull(workspaceId, "workspaceId must not be null");
         this.description = description;
         this.active = true;
         byte[] keyBytes = new byte[KEY_LENGTH];

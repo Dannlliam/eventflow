@@ -3,6 +3,7 @@ package com.eventflow.template.domain;
 import com.eventflow.common.domain.BaseEntity;
 import com.eventflow.common.domain.Channel;
 import java.time.Instant;
+import java.util.Objects;
 import java.util.UUID;
 
 /**
@@ -24,12 +25,12 @@ public class TemplateVersion extends BaseEntity {
     public TemplateVersion(UUID templateId, String templateSlug, int version, Channel channel,
                            String subjectTemplate, String bodyTemplate, boolean isActive, UUID createdBy) {
         super();
-        this.templateId = templateId;
-        this.templateSlug = templateSlug;
+        this.templateId = Objects.requireNonNull(templateId, "templateId must not be null");
+        this.templateSlug = Objects.requireNonNull(templateSlug, "templateSlug must not be null");
         this.version = version;
         this.channel = channel;
         this.subjectTemplate = subjectTemplate;
-        this.bodyTemplate = bodyTemplate;
+        this.bodyTemplate = Objects.requireNonNull(bodyTemplate, "bodyTemplate must not be null");
         this.isActive = isActive;
         this.createdBy = createdBy;
     }

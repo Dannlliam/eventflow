@@ -19,7 +19,9 @@ public enum NotificationStatus {
 
     public boolean canTransitionTo(NotificationStatus target) {
         return switch (this) {
-            case QUEUED -> target == PROCESSING || target == FAILED;
+            case QUEUED -> target == PROCESSING || target == FAILED
+                || target == DISPATCHED || target == DELIVERED
+                || target == DLQ || target == RETRY_SCHEDULED;
             case PROCESSING -> target == DISPATCHED || target == FAILED || target == DLQ
                 || target == RETRY_SCHEDULED;
             case DISPATCHED -> target == DELIVERED || target == FAILED;

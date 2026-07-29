@@ -20,7 +20,14 @@ public class User extends BaseEntity {
     public User(EmailAddress email, String displayName, Set<Role> roles) {
         super();
         this.email = Objects.requireNonNull(email, "email must not be null");
-        this.displayName = Objects.requireNonNull(displayName, "displayName must not be null");
+        Objects.requireNonNull(displayName, "displayName must not be null");
+        if (displayName.isBlank()) {
+            throw new DomainValidationException(
+                "INVALID_DISPLAY_NAME",
+                "Display name must not be empty"
+            );
+        }
+        this.displayName = displayName;
         this.roles = Collections.unmodifiableSet(new HashSet<>(Objects.requireNonNull(roles, "roles must not be null")));
         this.enabled = true;
         if (roles.isEmpty()) {
