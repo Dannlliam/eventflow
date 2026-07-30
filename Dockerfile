@@ -1,24 +1,26 @@
 # EventFlow Backend - Multi-stage Docker build
-# Stage 1: Build with Maven and JDK 21
-FROM eclipse-temurin:21-jdk-alpine AS builder
+# Stage 1: Build with Maven and JDK 17
+FROM maven:3.9-eclipse-temurin-17-alpine AS builder
 
 WORKDIR /app
 
-# Copy Maven wrapper and POM files first for dependency caching
-COPY mvnw pom.xml ./
-COPY .mvn .mvn/
+# Copy POM first for dependency caching
+COPY pom.xml ./
 
 # Download dependencies (cached layer unless POM changes)
-RUN ./mvnw dependency:go-offline -B -q
+RUN mvn dependency:go-offline -B -q
 
 # Copy source code
 COPY src src/
 
-# Build the application (skip tests for production build)
-RUN ./mvnw package -DskipTests -B -q
+# Copy Avro schemas if they exist
+COPY src/main/resources/avro src/main/resources/avro/
 
-# Stage 2: Minimal runtime image with distroless base
-FROM eclipse-temurin:21-jre-alpine AS runtime
+# Build the application (skip tests for production build)
+RUN mvn package -DskipTests -B -q
+
+# Stage 2: Minimal runtime image with JRE 17
+FROM eclipse-temurin:17-jre-alpine AS runtime
 
 # Add non-root user for security
 RUN addgroup -S eventflow && adduser -S eventflow -G eventflow

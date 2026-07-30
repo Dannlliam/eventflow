@@ -2,8 +2,6 @@
 # PostgreSQL, Redis, Kafka, Schema Registry, and the Backend
 # Configuration for local development and testing
 
-version: "3.9"
-
 services:
   # --- Database ---
   postgres:
