@@ -1,5 +1,6 @@
 package com.eventflow.notification.interfaces;
 
+import com.eventflow.common.infrastructure.WorkspaceContextProvider;
 import com.eventflow.notification.application.DlqReplayUseCase;
 import com.eventflow.notification.application.NotificationRepository;
 import jakarta.validation.constraints.Max;
@@ -31,11 +32,14 @@ public class AdminGraphQLController {
 
     private final NotificationRepository notificationRepository;
     private final DlqReplayUseCase dlqReplayUseCase;
+    private final WorkspaceContextProvider workspaceContextProvider;
 
     public AdminGraphQLController(NotificationRepository notificationRepository,
-                                  DlqReplayUseCase dlqReplayUseCase) {
+                                  DlqReplayUseCase dlqReplayUseCase,
+                                  WorkspaceContextProvider workspaceContextProvider) {
         this.notificationRepository = notificationRepository;
         this.dlqReplayUseCase = dlqReplayUseCase;
+        this.workspaceContextProvider = workspaceContextProvider;
     }
 
     @QueryMapping
@@ -53,7 +57,7 @@ public class AdminGraphQLController {
                                                  @Argument String after) {
         log.info("Querying notifications: filter={}, first={}, after={}", filter, first, after);
 
-        UUID workspaceId = UUID.fromString("00000000-0000-0000-0000-000000000000");
+        UUID workspaceId = workspaceContextProvider.getCurrentWorkspaceId();
 
         int offset = 0;
         if (after != null && !after.isBlank()) {
@@ -108,7 +112,7 @@ public class AdminGraphQLController {
         log.info("Replaying DLQ message: eventId={}", eventId);
         try {
             UUID notificationId = UUID.fromString(eventId);
-            UUID adminUserId = UUID.fromString("00000000-0000-0000-0000-000000000000");
+            UUID adminUserId = workspaceContextProvider.getCurrentUserId();
 
             DlqReplayUseCase.ReplayResult result = dlqReplayUseCase.execute(notificationId, adminUserId);
             log.info("DLQ replay result: notificationId={}, success={}, message={}",

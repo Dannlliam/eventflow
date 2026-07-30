@@ -5,6 +5,7 @@ import com.eventflow.analytics.domain.AnalyticsResult;
 import com.eventflow.analytics.domain.ChannelBreakdown;
 import com.eventflow.analytics.domain.DailyDeliveryStats;
 import com.eventflow.analytics.domain.ErrorStat;
+import com.eventflow.common.infrastructure.WorkspaceContextProvider;
 import jakarta.validation.constraints.NotBlank;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -25,9 +26,12 @@ public class AnalyticsGraphQLResolver {
     private static final Logger log = LoggerFactory.getLogger(AnalyticsGraphQLResolver.class);
 
     private final QueryAnalyticsUseCase queryAnalyticsUseCase;
+    private final WorkspaceContextProvider workspaceContextProvider;
 
-    public AnalyticsGraphQLResolver(QueryAnalyticsUseCase queryAnalyticsUseCase) {
+    public AnalyticsGraphQLResolver(QueryAnalyticsUseCase queryAnalyticsUseCase,
+                                     WorkspaceContextProvider workspaceContextProvider) {
         this.queryAnalyticsUseCase = queryAnalyticsUseCase;
+        this.workspaceContextProvider = workspaceContextProvider;
     }
 
     @QueryMapping
@@ -35,8 +39,7 @@ public class AnalyticsGraphQLResolver {
                                       @Argument @NotBlank String endDate,
                                       @Argument String channel,
                                       @Argument String providerId) {
-        // In production, workspaceId would be extracted from the authenticated user's security context
-        UUID workspaceId = UUID.fromString("00000000-0000-0000-0000-000000000000");
+        UUID workspaceId = workspaceContextProvider.getCurrentWorkspaceId();
 
         log.info("Analytics query: startDate={}, endDate={}, channel={}", startDate, endDate, channel);
 

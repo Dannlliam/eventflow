@@ -56,14 +56,6 @@ public class DispatchRequestedConsumer {
             event.getEventId(), event.notificationId(), event.providerType());
 
         try {
-            // Update notification to DISPATCHED status
-            transactionTemplate.executeWithoutResult(status -> {
-                notificationRepository.findById(event.notificationId()).ifPresent(notification -> {
-                    notification.markDispatched(UUID.randomUUID()); // providerId will be properly set
-                    notificationRepository.save(notification);
-                });
-            });
-
             // Create additional headers for the provider
             Map<String, String> additionalHeaders = Map.of(
                 "workspaceId", event.workspaceId().toString(),

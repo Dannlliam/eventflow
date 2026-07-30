@@ -2,6 +2,7 @@ package com.eventflow.notification.application;
 
 import com.eventflow.common.domain.Channel;
 import com.eventflow.common.domain.DomainValidationException;
+import com.eventflow.common.infrastructure.ObservabilityConfig;
 import com.eventflow.notification.domain.Notification;
 import com.eventflow.notification.domain.Recipient;
 import com.eventflow.notification.domain.events.NotificationCreatedEvent;
@@ -15,6 +16,7 @@ import java.util.UUID;
  * Use case for ingesting a notification request.
  * Validates the payload, checks idempotency, persists the notification,
  * and emits a domain event for further processing.
+ * Records observability metrics for monitoring.
  */
 public class IngestNotificationUseCase {
 
@@ -23,13 +25,16 @@ public class IngestNotificationUseCase {
     private final NotificationRepository notificationRepository;
     private final NotificationEventRepository eventRepository;
     private final NotificationEventPublisher eventPublisher;
+    private final ObservabilityConfig.NotificationMetrics notificationMetrics;
 
     public IngestNotificationUseCase(NotificationRepository notificationRepository,
                                      NotificationEventRepository eventRepository,
-                                     NotificationEventPublisher eventPublisher) {
+                                     NotificationEventPublisher eventPublisher,
+                                     ObservabilityConfig.NotificationMetrics notificationMetrics) {
         this.notificationRepository = notificationRepository;
         this.eventRepository = eventRepository;
         this.eventPublisher = eventPublisher;
+        this.notificationMetrics = notificationMetrics;
     }
 
     public IngestResult execute(IngestCommand command) {
@@ -75,6 +80,11 @@ public class IngestNotificationUseCase {
         // Emit domain event for Kafka processing
         NotificationCreatedEvent domainEvent = notification.toCreatedEvent();
         eventPublisher.publishNotificationCreated(domainEvent);
+
+        // Record observability metrics
+        notificationMetrics.recordIngestion();
+        notificationMetrics.recordPayloadSize(command.payload() != null
+            ? command.payload().toString().length() : 0);
 
         log.info("Notification ingested and published: id={}, workspaceId={}, channel={}, eventId={}",
             saved.getId(), saved.getWorkspaceId(), saved.getChannel(), domainEvent.getEventId());

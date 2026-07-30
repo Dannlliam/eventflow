@@ -13,6 +13,7 @@ import java.util.UUID;
 public interface ProviderRepository {
     Provider save(Provider provider);
     Optional<Provider> findById(UUID id);
+    Optional<Provider> findByIdAndWorkspaceId(UUID id, UUID workspaceId);
     List<Provider> findByWorkspaceIdAndChannel(UUID workspaceId, Channel channel);
     List<Provider> findByWorkspaceId(UUID workspaceId);
     Optional<Provider> findPrimaryByWorkspaceIdAndChannel(UUID workspaceId, Channel channel);
@@ -22,4 +23,9 @@ public interface ProviderRepository {
      * Used as fallback when primary provider is unavailable.
      */
     Optional<Provider> findFirstByWorkspaceIdAndChannelAndEnabled(UUID workspaceId, Channel channel);
+
+    /**
+     * Deletes a provider by its ID.
+     */
+    void deleteById(UUID id);
 }

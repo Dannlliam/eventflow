@@ -1,5 +1,7 @@
 package com.eventflow.provider.infrastructure;
 
+import com.eventflow.common.infrastructure.SsrfProtectionService;
+import com.eventflow.common.infrastructure.WebhookSigningService;
 import com.eventflow.notification.domain.events.DispatchResultEvent;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
@@ -9,12 +11,14 @@ import org.springframework.http.*;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestTemplate;
 
+import java.nio.charset.StandardCharsets;
 import java.util.Map;
 import java.util.UUID;
 
 /**
  * Webhook adapter for HTTP-based notification dispatch.
- * Sends HTTP POST requests to the configured webhook URL.
+ * Uses SsrfProtectionService for URL validation and WebhookSigningService
+ * for HMAC signing instead of building its own.
  */
 @Component
 public class WebhookDispatcher implements ProviderAdapter {
@@ -23,10 +27,16 @@ public class WebhookDispatcher implements ProviderAdapter {
 
     private final RestTemplate restTemplate;
     private final ObjectMapper objectMapper;
+    private final SsrfProtectionService ssrfProtectionService;
+    private final WebhookSigningService webhookSigningService;
 
-    public WebhookDispatcher(ObjectMapper objectMapper) {
+    public WebhookDispatcher(ObjectMapper objectMapper,
+                              SsrfProtectionService ssrfProtectionService,
+                              WebhookSigningService webhookSigningService) {
         this.restTemplate = new RestTemplate();
         this.objectMapper = objectMapper;
+        this.ssrfProtectionService = ssrfProtectionService;
+        this.webhookSigningService = webhookSigningService;
     }
 
     @Override
@@ -40,6 +50,17 @@ public class WebhookDispatcher implements ProviderAdapter {
         try {
             String webhookUrl = recipient; // The webhook URL is the recipient
             String hmacSecret = additionalHeaders.get("hmacSecret");
+
+            // SSRF protection: validate URL before dispatching
+            try {
+                ssrfProtectionService.validateUrl(webhookUrl);
+            } catch (IllegalArgumentException e) {
+                log.warn("SSRF validation failed for webhook URL: {}", e.getMessage());
+                return DispatchResultEvent.permanentFailure(
+                    notificationIdObj, workspaceId, "WEBHOOK", 0,
+                    "SSRF validation failed: " + e.getMessage()
+                );
+            }
 
             // Build JSON payload
             ObjectNode payload = objectMapper.createObjectNode();
@@ -65,9 +86,14 @@ public class WebhookDispatcher implements ProviderAdapter {
             httpHeaders.set("X-EventFlow-NotificationId", notificationId);
             httpHeaders.set("X-EventFlow-Timestamp", String.valueOf(System.currentTimeMillis()));
 
+            // Use WebhookSigningService instead of manual HMAC computation
             if (hmacSecret != null && !hmacSecret.isBlank()) {
-                String signature = computeHmacSignature(requestBody, hmacSecret);
-                httpHeaders.set("X-EventFlow-Signature", "sha256=" + signature);
+                WebhookSigningService.SigningResult signingResult =
+                    webhookSigningService.sign(requestBody.getBytes(StandardCharsets.UTF_8), hmacSecret);
+                httpHeaders.set(signingResult.signatureHeader(),
+                    "sha256=" + signingResult.signature());
+                httpHeaders.set(signingResult.timestampHeader(),
+                    String.valueOf(signingResult.timestamp()));
             }
 
             HttpEntity<String> entity = new HttpEntity<>(requestBody, httpHeaders);
@@ -109,24 +135,6 @@ public class WebhookDispatcher implements ProviderAdapter {
             return DispatchResultEvent.transientFailure(
                 notificationIdObj, workspaceId, "WEBHOOK", 0, e.getMessage()
             );
-        }
-    }
-
-    private String computeHmacSignature(String payload, String secret) {
-        try {
-            javax.crypto.Mac mac = javax.crypto.Mac.getInstance("HmacSHA256");
-            javax.crypto.spec.SecretKeySpec secretKeySpec =
-                new javax.crypto.spec.SecretKeySpec(secret.getBytes(java.nio.charset.StandardCharsets.UTF_8), "HmacSHA256");
-            mac.init(secretKeySpec);
-            byte[] hmacBytes = mac.doFinal(payload.getBytes(java.nio.charset.StandardCharsets.UTF_8));
-            StringBuilder hexString = new StringBuilder();
-            for (byte b : hmacBytes) {
-                hexString.append(String.format("%02x", b));
-            }
-            return hexString.toString();
-        } catch (Exception e) {
-            log.error("Failed to compute HMAC signature", e);
-            return "";
         }
     }
 }

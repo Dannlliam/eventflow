@@ -81,14 +81,17 @@ public class RetryScheduler {
                     transactionTemplate.executeWithoutResult(status -> {
                         // Reload notification within transaction
                         notificationRepository.findById(notification.getId()).ifPresent(n -> {
-                            // Transition back to QUEUED for reprocessing
+                            // Reset status to QUEUED and increment attempt count
+                            // The notification must be in QUEUED state for the consumer to
+                            // process it correctly (ProcessNotificationUseCase validates this)
+                            n.resetForReplay();
+                            // After reset, re-increment attempt since we want to track total attempts
                             n.incrementAttempt();
-                            // We don't use markRetryScheduled here since we're re-queuing
                             notificationRepository.save(n);
 
-                            // Re-publish the notification.created event
+                            // Re-publish the notification.created event onto the retry topic
                             NotificationCreatedEvent retryEvent = n.toCreatedEvent();
-                            eventPublisher.publishNotificationCreated(retryEvent);
+                            eventPublisher.publish("notification.retry", n.getId().toString(), retryEvent);
 
                             log.info("Re-queued notification for retry: id={}, attempt={}",
                                 n.getId(), n.getAttemptCount());

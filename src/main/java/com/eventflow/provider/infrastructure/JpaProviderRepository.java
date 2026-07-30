@@ -41,6 +41,16 @@ public class JpaProviderRepository implements ProviderRepository {
     }
 
     @Override
+    public Optional<Provider> findByIdAndWorkspaceId(UUID id, UUID workspaceId) {
+        return springDataRepository.findByIdAndWorkspaceId(id, workspaceId).map(this::toDomainEntity);
+    }
+
+    @Override
+    public void deleteById(UUID id) {
+        springDataRepository.deleteById(id);
+    }
+
+    @Override
     public List<Provider> findByWorkspaceIdAndChannel(UUID workspaceId, Channel channel) {
         return springDataRepository.findByWorkspaceIdAndChannel(workspaceId, channel.name()).stream()
             .map(this::toDomainEntity)

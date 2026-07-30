@@ -1,0 +1,25 @@
+# EventFlow - Docker Compose Profile
+# Used when running with docker-compose up
+
+spring:
+  datasource:
+    url: jdbc:postgresql://postgres:5432/eventflow
+    username: eventflow
+    password: eventflow
+
+  kafka:
+    bootstrap-servers: kafka:9092
+    properties:
+      schema.registry.url: http://schema-registry:8081
+
+  redis:
+    host: redis
+    port: 6379
+
+eventflow:
+  security:
+    api-key-header: Authorization
+
+logging:
+  level:
+    com.eventflow: INFO

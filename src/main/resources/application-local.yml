@@ -1,0 +1,36 @@
+# EventFlow - Local Development Profile
+# Used for local development with Docker Compose services
+
+spring:
+  datasource:
+    url: jdbc:postgresql://localhost:5432/eventflow
+    username: eventflow
+    password: eventflow_local
+
+  kafka:
+    bootstrap-servers: localhost:9092
+
+  redis:
+    host: localhost
+    port: 6379
+
+  graphql:
+    graphiql:
+      enabled: true
+
+logging:
+  level:
+    com.eventflow: DEBUG
+    org.springframework.security: DEBUG
+
+eventflow:
+  retry:
+    base-delay-ms: 1000
+    max-attempts: 3
+    multiplier: 2
+    jitter-percentage: 0.2
+  webhook:
+    hmac-secret: eventflow-local-hmac-secret
+
+jwt:
+  secret: eventflow-local-jwt-secret-key-min-256-bits

@@ -1,5 +1,6 @@
 package com.eventflow.notification.interfaces;
 
+import com.eventflow.common.infrastructure.WorkspaceContextProvider;
 import com.eventflow.notification.application.IngestNotificationUseCase;
 import com.eventflow.notification.application.IngestNotificationUseCase.IngestCommand;
 import com.eventflow.notification.application.IngestNotificationUseCase.IngestResult;
@@ -26,9 +27,12 @@ public class NotificationIngestionController {
     private static final Logger log = LoggerFactory.getLogger(NotificationIngestionController.class);
 
     private final IngestNotificationUseCase ingestNotificationUseCase;
+    private final WorkspaceContextProvider workspaceContextProvider;
 
-    public NotificationIngestionController(IngestNotificationUseCase ingestNotificationUseCase) {
+    public NotificationIngestionController(IngestNotificationUseCase ingestNotificationUseCase,
+                                            WorkspaceContextProvider workspaceContextProvider) {
         this.ingestNotificationUseCase = ingestNotificationUseCase;
+        this.workspaceContextProvider = workspaceContextProvider;
     }
 
     @PostMapping
@@ -37,8 +41,9 @@ public class NotificationIngestionController {
             @RequestHeader(value = "Idempotency-Key", required = false) String idempotencyKey,
             HttpServletRequest servletRequest) {
 
-        String workspaceIdStr = (String) servletRequest.getAttribute("workspaceId");
-        UUID workspaceId = workspaceIdStr != null ? UUID.fromString(workspaceIdStr) : UUID.randomUUID();
+        UUID workspaceId = workspaceContextProvider.getOptionalWorkspaceId()
+            .orElseThrow(() -> new IllegalStateException(
+                "Missing workspace context. Authentication is required to ingest notifications."));
 
         log.info("Ingesting notification: channel={}, template={}, workspaceId={}",
             request.channel(), request.templateSlug(), workspaceId);

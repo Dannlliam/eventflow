@@ -64,6 +64,7 @@ log/
 #docs
 PRD.md
 rules.md
+remainingtasks.md
 
 # Docker
 docker/data/

@@ -16,6 +16,7 @@ import java.util.UUID;
 public interface SpringDataProviderRepository extends JpaRepository<ProviderJpaEntity, UUID> {
     List<ProviderJpaEntity> findByWorkspaceIdAndChannel(UUID workspaceId, String channel);
     List<ProviderJpaEntity> findByWorkspaceId(UUID workspaceId);
+    Optional<ProviderJpaEntity> findByIdAndWorkspaceId(UUID id, UUID workspaceId);
 
     @Query("SELECT p FROM ProviderJpaEntity p WHERE p.workspaceId = :workspaceId AND p.channel = :channel AND p.isPrimary = true")
     Optional<ProviderJpaEntity> findPrimaryByWorkspaceIdAndChannel(@Param("workspaceId") UUID workspaceId,
