@@ -34,7 +34,7 @@ public interface SpringDataNotificationRepository extends JpaRepository<Notifica
     long countByStatus(String status);
 
     @Modifying
-    @Query("UPDATE NotificationJpaEntity n SET n.status = :status, n.updatedAt = NOW() WHERE n.id = :id")
+    @Query("UPDATE NotificationJpaEntity n SET n.status = :status, n.updatedAt = CURRENT_TIMESTAMP WHERE n.id = :id")
     void updateStatus(@Param("id") UUID id, @Param("status") String status);
 
     List<NotificationJpaEntity> findByWorkspaceIdOrderByCreatedAtDesc(UUID workspaceId, Pageable pageable);

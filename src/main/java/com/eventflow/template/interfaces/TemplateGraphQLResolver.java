@@ -1,5 +1,6 @@
 package com.eventflow.template.interfaces;
 
+import com.eventflow.common.domain.Auditable;
 import com.eventflow.common.domain.Channel;
 import com.eventflow.template.application.TemplateRepository;
 import com.eventflow.template.domain.Template;

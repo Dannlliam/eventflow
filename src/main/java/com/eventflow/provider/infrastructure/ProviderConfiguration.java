@@ -1,5 +1,6 @@
 package com.eventflow.provider.infrastructure;
 
+import com.eventflow.common.infrastructure.RateLimiterService;
 import com.eventflow.identity.application.UserRepository;
 import com.eventflow.provider.application.NotificationDispatcherPort;
 import com.eventflow.provider.application.ProviderRepository;
@@ -39,7 +40,8 @@ public class ProviderConfiguration {
             SendGridEmailDispatcher sendGrid,
             TwilioSmsDispatcher twilio,
             FcmPushDispatcher fcm,
-            WebhookDispatcher webhook) {
-        return new CompositeNotificationDispatcher(sendGrid, twilio, fcm, webhook);
+            WebhookDispatcher webhook,
+            RateLimiterService rateLimiterService) {
+        return new CompositeNotificationDispatcher(sendGrid, twilio, fcm, webhook, rateLimiterService);
     }
 }

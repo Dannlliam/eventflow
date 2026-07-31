@@ -60,6 +60,9 @@ type Mutation {
     """Replay a DLQ message back to the processing queue"""
     replayDlqMessage(eventId: String!): Boolean!
 
+    """Replay multiple DLQ messages back to the processing queue"""
+    replayDlqBatch(eventIds: [String!]!): BatchReplayResult!
+
     """Save provider configuration"""
     saveProviderConfig(input: ProviderInput!): Provider!
 
@@ -233,6 +236,11 @@ type AuditLogConnection {
 type AuditLogEdge {
     node: AuditLog!
     cursor: String!
+}
+
+type BatchReplayResult {
+    succeeded: Int!
+    failed: Int!
 }
 
 # ============================================================

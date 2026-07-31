@@ -11,7 +11,11 @@ import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
+import org.springframework.security.oauth2.jwt.JwtEncoder;
 import org.springframework.security.oauth2.jwt.NimbusJwtDecoder;
+import org.springframework.security.oauth2.jwt.NimbusJwtEncoder;
+import org.springframework.security.oauth2.jose.jws.MacAlgorithm;
+import com.nimbusds.jose.jwk.source.ImmutableSecret;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
@@ -39,6 +43,9 @@ public class SecurityConfig {
                 // Health check endpoints
                 .requestMatchers("/actuator/health/**").permitAll()
                 .requestMatchers("/actuator/info").permitAll()
+
+                // Authentication endpoint
+                .requestMatchers("/api/v1/auth/**").permitAll()
 
                 // API key authentication for ingestion
                 .requestMatchers(HttpMethod.POST, "/api/v1/notifications").permitAll() // Auth handled by API key filter
@@ -84,5 +91,12 @@ public class SecurityConfig {
         return NimbusJwtDecoder.withSecretKey(
             new SecretKeySpec(secret.getBytes(), "HmacSHA256")
         ).build();
+    }
+
+    @Bean
+    public JwtEncoder jwtEncoder() {
+        String secret = System.getenv().getOrDefault("JWT_SECRET", "eventflow-local-jwt-secret-key-min-256-bits");
+        SecretKeySpec secretKey = new SecretKeySpec(secret.getBytes(), "HmacSHA256");
+        return new NimbusJwtEncoder(new ImmutableSecret<SecurityContext>(secretKey));
     }
 }

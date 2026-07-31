@@ -1,6 +1,7 @@
 package com.eventflow.notification.infrastructure;
 
 import com.eventflow.common.infrastructure.EventFlowProperties;
+import com.eventflow.common.infrastructure.ObservabilityConfig;
 import com.eventflow.common.infrastructure.PhoneNumberNormalizationService;
 import com.eventflow.notification.application.*;
 import com.eventflow.provider.application.ProviderRepository;
@@ -36,8 +37,9 @@ public class NotificationConfiguration {
     public IngestNotificationUseCase ingestNotificationUseCase(
             NotificationRepository notificationRepository,
             NotificationEventRepository eventRepository,
-            NotificationEventPublisher eventPublisher) {
-        return new IngestNotificationUseCase(notificationRepository, eventRepository, eventPublisher);
+            NotificationEventPublisher eventPublisher,
+            ObservabilityConfig.NotificationMetrics metrics) {
+        return new IngestNotificationUseCase(notificationRepository, eventRepository, eventPublisher, metrics);
     }
 
     @Bean

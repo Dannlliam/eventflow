@@ -2,6 +2,7 @@ package com.eventflow.notification.infrastructure;
 
 import org.apache.kafka.clients.admin.NewTopic;
 import java.util.Map;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.kafka.config.TopicBuilder;
@@ -14,10 +15,13 @@ import org.springframework.kafka.core.KafkaAdmin;
 @Configuration
 public class KafkaTopicConfig {
 
+    @Value("${spring.kafka.bootstrap-servers}")
+    private String bootstrapServers;
+
     @Bean
     public KafkaAdmin kafkaAdmin() {
         return new KafkaAdmin(Map.of(
-            "bootstrap.servers", "${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}"
+            "bootstrap.servers", bootstrapServers
         ));
     }
 

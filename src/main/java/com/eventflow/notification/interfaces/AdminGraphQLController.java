@@ -1,5 +1,6 @@
 package com.eventflow.notification.interfaces;
 
+import com.eventflow.common.domain.Auditable;
 import com.eventflow.common.infrastructure.WorkspaceContextProvider;
 import com.eventflow.notification.application.DlqReplayUseCase;
 import com.eventflow.notification.application.NotificationRepository;
@@ -108,6 +109,7 @@ public class AdminGraphQLController {
     }
 
     @MutationMapping
+    @Auditable(action = "DLQ_REPLAY", entityType = "NOTIFICATION")
     public Boolean replayDlqMessage(@Argument String eventId) {
         log.info("Replaying DLQ message: eventId={}", eventId);
         try {
@@ -121,6 +123,25 @@ public class AdminGraphQLController {
         } catch (Exception e) {
             log.error("Failed to replay DLQ message: eventId={}, error={}", eventId, e.getMessage());
             return false;
+        }
+    }
+
+    @MutationMapping
+    @Auditable(action = "DLQ_BATCH_REPLAY", entityType = "NOTIFICATION")
+    public BatchReplayResultPayload replayDlqBatch(@Argument List<String> eventIds) {
+        log.info("Replaying DLQ batch: count={}", eventIds.size());
+        try {
+            List<UUID> notificationIds = eventIds.stream()
+                .map(UUID::fromString)
+                .toList();
+            UUID adminUserId = workspaceContextProvider.getCurrentUserId();
+
+            DlqReplayUseCase.BatchReplayResult result = dlqReplayUseCase.executeBatch(notificationIds, adminUserId);
+            log.info("DLQ batch replay result: succeeded={}, failed={}", result.succeeded(), result.failed());
+            return new BatchReplayResultPayload(result.succeeded(), result.failed());
+        } catch (Exception e) {
+            log.error("Failed to replay DLQ batch: error={}", e.getMessage());
+            return new BatchReplayResultPayload(0, eventIds.size());
         }
     }
 
@@ -190,5 +211,10 @@ public class AdminGraphQLController {
         boolean hasNextPage,
         String endCursor,
         long totalCount
+    ) {}
+
+    public record BatchReplayResultPayload(
+        int succeeded,
+        int failed
     ) {}
 }

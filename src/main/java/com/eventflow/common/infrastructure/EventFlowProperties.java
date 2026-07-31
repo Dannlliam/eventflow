@@ -1,33 +1,30 @@
 package com.eventflow.common.infrastructure;
 
 import org.springframework.boot.context.properties.ConfigurationProperties;
-import org.springframework.boot.context.properties.bind.ConstructorBinding;
-import org.springframework.stereotype.Component;
 
 /**
  * Configuration properties for EventFlow specific settings.
  * Mapped from the "eventflow.*" prefix in application.yml.
  */
-@Component
 @ConfigurationProperties(prefix = "eventflow")
 public class EventFlowProperties {
 
-    private final Retry retry;
-    private final Dlq dlq;
-    private final RateLimit rateLimit;
-    private final Security security;
-
-    public EventFlowProperties(Retry retry, Dlq dlq, RateLimit rateLimit, Security security) {
-        this.retry = retry;
-        this.dlq = dlq;
-        this.rateLimit = rateLimit;
-        this.security = security;
-    }
+    private Retry retry = new Retry();
+    private Dlq dlq = new Dlq();
+    private RateLimit rateLimit = new RateLimit();
+    private Security security = new Security();
 
     public Retry getRetry() { return retry; }
+    public void setRetry(Retry retry) { this.retry = retry; }
+    
     public Dlq getDlq() { return dlq; }
+    public void setDlq(Dlq dlq) { this.dlq = dlq; }
+    
     public RateLimit getRateLimit() { return rateLimit; }
+    public void setRateLimit(RateLimit rateLimit) { this.rateLimit = rateLimit; }
+    
     public Security getSecurity() { return security; }
+    public void setSecurity(Security security) { this.security = security; }
 
     public static class Retry {
         private int maxAttempts = 5;

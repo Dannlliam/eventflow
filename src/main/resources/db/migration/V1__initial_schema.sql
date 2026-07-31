@@ -3,7 +3,7 @@
 
 -- Enable UUID generation
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
-CREATE EXTENSION IF NOT EXISTS "pg_partman";
+-- CREATE EXTENSION IF NOT EXISTS "pg_partman"; -- Commented out - not available in standard PostgreSQL
 
 -- ============================================================
 -- SCHEMA: eventflow
@@ -150,7 +150,7 @@ CREATE INDEX IF NOT EXISTS idx_notifications_workspace_created
     ON eventflow.notifications(workspace_id, created_at DESC);
 
 CREATE UNIQUE INDEX IF NOT EXISTS idx_notifications_idempotency
-    ON eventflow.notifications(workspace_id, idempotency_key)
+    ON eventflow.notifications(workspace_id, idempotency_key, created_at)
     WHERE idempotency_key IS NOT NULL;
 
 CREATE INDEX IF NOT EXISTS idx_notifications_recipient_gin

@@ -26,7 +26,7 @@
         <testcontainers.version>1.19.3</testcontainers.version>
         <avro.version>1.11.3</avro.version>
         <confluent.version>7.5.1</confluent.version>
-        <redisson.version>3.27.0</redisson.version>
+        <redisson.version>3.35.0</redisson.version>
         <caffeine.version>3.1.8</caffeine.version>
         <handlebars.version>4.4.0</handlebars.version>
         <owasp.sanitizer.version>20240325.1</owasp.sanitizer.version>
@@ -80,6 +80,11 @@
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-graphql</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.graphql-java</groupId>
+            <artifactId>graphql-java-extended-scalars</artifactId>
+            <version>21.0</version>
         </dependency>
 
         <!-- Database -->
@@ -219,6 +224,25 @@
             <artifactId>pitest-junit5-plugin</artifactId>
             <version>1.2.1</version>
             <scope>test</scope>
+        </dependency>
+
+        <!-- JWT -->
+        <dependency>
+            <groupId>io.jsonwebtoken</groupId>
+            <artifactId>jjwt-api</artifactId>
+            <version>0.11.5</version>
+        </dependency>
+        <dependency>
+            <groupId>io.jsonwebtoken</groupId>
+            <artifactId>jjwt-impl</artifactId>
+            <version>0.11.5</version>
+            <scope>runtime</scope>
+        </dependency>
+        <dependency>
+            <groupId>io.jsonwebtoken</groupId>
+            <artifactId>jjwt-jackson</artifactId>
+            <version>0.11.5</version>
+            <scope>runtime</scope>
         </dependency>
     </dependencies>
 
