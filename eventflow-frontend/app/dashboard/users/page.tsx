@@ -1,6 +1,8 @@
 "use client";
 
 import { useState } from "react";
+import { useQuery } from "@apollo/client/react";
+import { useMutation } from "@apollo/client/react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -15,6 +17,9 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Plus, Mail, Shield } from "lucide-react";
 import { useAuth } from "@/contexts/auth-context";
+import { LIST_USERS } from "@/lib/graphql/queries";
+import { LoadingTable } from "@/components/shared/loading";
+import { ErrorState } from "@/components/shared/error-state";
 
 /**
  * Users Page
@@ -30,34 +35,42 @@ import { useAuth } from "@/contexts/auth-context";
 export default function UsersPage() {
   const { user: currentUser } = useAuth();
   const [showInviteDialog, setShowInviteDialog] = useState(false);
+  const [inviteEmail, setInviteEmail] = useState("");
+  const [inviteRole, setInviteRole] = useState("DEVELOPER");
 
-  // TODO: Fetch from GraphQL
-  const users = [
-    {
-      id: "1",
-      name: "Admin User",
-      email: "admin@eventflow.com",
-      role: "WORKSPACE_ADMIN",
-      status: "ACTIVE",
-      lastLogin: new Date().toISOString(),
-    },
-    {
-      id: "2",
-      name: "Developer One",
-      email: "dev@eventflow.com",
-      role: "DEVELOPER",
-      status: "ACTIVE",
-      lastLogin: new Date(Date.now() - 86400000).toISOString(),
-    },
-    {
-      id: "3",
-      name: "Analyst User",
-      email: "analyst@eventflow.com",
-      role: "ANALYST",
-      status: "INVITED",
-      lastLogin: null,
-    },
-  ];
+  const { loading, error, data, refetch } = useQuery(LIST_USERS);
+
+  if (loading) {
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="text-3xl font-bold tracking-tight">Users</h2>
+            <p className="text-muted-foreground">
+              Manage workspace access and role-based permissions
+            </p>
+          </div>
+        </div>
+        <LoadingTable />
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="space-y-6">
+        <div>
+          <h2 className="text-3xl font-bold tracking-tight">Users</h2>
+          <p className="text-muted-foreground">
+            Manage workspace access and role-based permissions
+          </p>
+        </div>
+        <ErrorState message={error.message} onRetry={() => refetch()} />
+      </div>
+    );
+  }
+
+  const users = (data as any)?.users || [];
 
   const handleRoleChange = (userId: string, currentRole: string, newRole: string) => {
     // Check if user is trying to revoke own admin rights
@@ -69,7 +82,22 @@ export default function UsersPage() {
     if (confirm(`Change user role from ${currentRole} to ${newRole}?`)) {
       console.log("Changing role for user:", userId);
       // TODO: Call updateUserRole mutation
+      alert("Role change mutation not yet implemented in backend");
     }
+  };
+
+  const handleInviteUser = () => {
+    if (!inviteEmail) {
+      alert("Please enter an email address");
+      return;
+    }
+    
+    console.log("Inviting user:", inviteEmail, "with role:", inviteRole);
+    // TODO: Call inviteUser mutation
+    alert("User invite mutation not yet implemented in backend");
+    setShowInviteDialog(false);
+    setInviteEmail("");
+    setInviteRole("DEVELOPER");
   };
 
   const getRoleBadgeVariant = (role: string) => {
@@ -132,7 +160,7 @@ export default function UsersPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {users.map((user) => (
+                {users.map((user: any) => (
                   <TableRow key={user.id}>
                     <TableCell className="font-medium">{user.name}</TableCell>
                     <TableCell className="text-muted-foreground">{user.email}</TableCell>
@@ -219,18 +247,27 @@ export default function UsersPage() {
             <CardContent className="space-y-4">
               <div className="space-y-2">
                 <label className="text-sm font-medium">Email Address</label>
-                <Input type="email" placeholder="user@example.com" />
+                <Input 
+                  type="email" 
+                  placeholder="user@example.com" 
+                  value={inviteEmail}
+                  onChange={(e) => setInviteEmail(e.target.value)}
+                />
               </div>
               <div className="space-y-2">
                 <label className="text-sm font-medium">Role</label>
-                <select className="w-full h-10 rounded-md border border-input bg-background px-3 py-2 text-sm">
+                <select 
+                  className="w-full h-10 rounded-md border border-input bg-background px-3 py-2 text-sm"
+                  value={inviteRole}
+                  onChange={(e) => setInviteRole(e.target.value)}
+                >
                   <option value="DEVELOPER">Developer</option>
                   <option value="ANALYST">Analyst</option>
                   <option value="WORKSPACE_ADMIN">Workspace Admin</option>
                 </select>
               </div>
               <div className="flex gap-2">
-                <Button className="flex-1">
+                <Button className="flex-1" onClick={handleInviteUser}>
                   <Mail className="mr-2 h-4 w-4" />
                   Send Invitation
                 </Button>

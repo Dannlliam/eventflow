@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useQuery } from "@apollo/client/react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import {
@@ -13,6 +14,9 @@ import {
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Search, ChevronDown, ChevronRight } from "lucide-react";
+import { LIST_AUDIT_LOGS } from "@/lib/graphql/queries";
+import { LoadingTable } from "@/components/shared/loading";
+import { ErrorState } from "@/components/shared/error-state";
 
 /**
  * Audit Logs Page
@@ -27,52 +31,62 @@ import { Search, ChevronDown, ChevronRight } from "lucide-react";
 export default function AuditPage() {
   const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
   const [searchTerm, setSearchTerm] = useState("");
+  const [actionFilter, setActionFilter] = useState("");
+  const [userFilter, setUserFilter] = useState("");
 
-  // TODO: Fetch from GraphQL
-  const auditLogs = [
-    {
-      id: "1",
-      timestamp: new Date().toISOString(),
-      userId: "user_123",
-      userName: "Admin User",
-      action: "TEMPLATE_VERSION_PUBLISH",
-      entityType: "TEMPLATE_VERSION",
-      entityId: "tmpl_v_456",
-      ipAddress: "192.168.1.100",
-      changes: {
-        before: { body: "Old template body", version: 1 },
-        after: { body: "New template body", version: 2 },
+  const { loading, error, data, refetch } = useQuery(LIST_AUDIT_LOGS, {
+    variables: {
+      filter: {
+        action: actionFilter || undefined,
+        userId: userFilter || undefined,
       },
+      first: 50,
     },
-    {
-      id: "2",
-      timestamp: new Date(Date.now() - 3600000).toISOString(),
-      userId: "user_789",
-      userName: "Developer User",
-      action: "DLQ_REPLAY",
-      entityType: "NOTIFICATION",
-      entityId: "evt_failed_001",
-      ipAddress: "192.168.1.101",
-      changes: {
-        before: { status: "DLQ" },
-        after: { status: "QUEUED", attemptCount: 0 },
-      },
-    },
-    {
-      id: "3",
-      timestamp: new Date(Date.now() - 7200000).toISOString(),
-      userId: "user_123",
-      userName: "Admin User",
-      action: "PROVIDER_CONFIG_UPDATE",
-      entityType: "PROVIDER",
-      entityId: "provider_sendgrid",
-      ipAddress: "192.168.1.100",
-      changes: {
-        before: { rateLimit: 1000, enabled: true },
-        after: { rateLimit: 1500, enabled: true },
-      },
-    },
-  ];
+    // Disable polling to reduce server load
+    // pollInterval: 60000,
+  });
+
+  if (loading) {
+    return (
+      <div className="space-y-6">
+        <div>
+          <h2 className="text-3xl font-bold tracking-tight">Audit Logs</h2>
+          <p className="text-muted-foreground">
+            Security and compliance tracking for all system changes
+          </p>
+        </div>
+        <LoadingTable />
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="space-y-6">
+        <div>
+          <h2 className="text-3xl font-bold tracking-tight">Audit Logs</h2>
+          <p className="text-muted-foreground">
+            Security and compliance tracking for all system changes
+          </p>
+        </div>
+        <ErrorState message={error.message} onRetry={() => refetch()} />
+      </div>
+    );
+  }
+
+  const auditLogs = (data as any)?.auditLogs?.edges?.map((edge: any) => edge.node) || [];
+  
+  // Filter logs by search term
+  const filteredLogs = auditLogs.filter((log: any) => {
+    if (!searchTerm) return true;
+    const searchLower = searchTerm.toLowerCase();
+    return (
+      log.userName?.toLowerCase().includes(searchLower) ||
+      log.action?.toLowerCase().includes(searchLower) ||
+      log.entityType?.toLowerCase().includes(searchLower) ||
+      log.entityId?.toLowerCase().includes(searchLower)
+    );
+  });
 
   const toggleRow = (id: string) => {
     const newExpanded = new Set(expandedRows);
@@ -117,17 +131,16 @@ export default function AuditPage() {
                 className="pl-10"
               />
             </div>
-            <select className="h-10 rounded-md border border-input bg-background px-3 py-2 text-sm">
+            <select 
+              className="h-10 rounded-md border border-input bg-background px-3 py-2 text-sm"
+              value={actionFilter}
+              onChange={(e) => setActionFilter(e.target.value)}
+            >
               <option value="">All Actions</option>
               <option value="TEMPLATE">Template Actions</option>
               <option value="DLQ">DLQ Actions</option>
               <option value="PROVIDER">Provider Actions</option>
               <option value="USER">User Actions</option>
-            </select>
-            <select className="h-10 rounded-md border border-input bg-background px-3 py-2 text-sm">
-              <option value="">All Users</option>
-              <option value="user_123">Admin User</option>
-              <option value="user_789">Developer User</option>
             </select>
           </div>
         </CardContent>
@@ -152,7 +165,20 @@ export default function AuditPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {auditLogs.map((log) => (
+                {filteredLogs.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={6} className="text-center py-12">
+                      <div className="flex flex-col items-center gap-2">
+                        <Search className="h-12 w-12 text-muted-foreground" />
+                        <h3 className="text-lg font-semibold">No audit logs found</h3>
+                        <p className="text-sm text-muted-foreground max-w-sm">
+                          {searchTerm ? "Try adjusting your search criteria" : "No activity recorded yet"}
+                        </p>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  filteredLogs.map((log: any) => (
                   <>
                     <TableRow
                       key={log.id}
@@ -197,30 +223,39 @@ export default function AuditPage() {
                         <TableCell colSpan={6} className="bg-muted/30">
                           <div className="p-4 space-y-2">
                             <h4 className="text-sm font-medium mb-2">Changes</h4>
-                            <div className="grid grid-cols-2 gap-4">
-                              <div>
-                                <p className="text-xs font-medium text-muted-foreground mb-1">
-                                  Before
-                                </p>
-                                <pre className="text-xs bg-background p-3 rounded-md overflow-x-auto">
-                                  {JSON.stringify(log.changes.before, null, 2)}
-                                </pre>
+                            {log.changes ? (
+                              <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                  <p className="text-xs font-medium text-muted-foreground mb-1">
+                                    Before
+                                  </p>
+                                  <pre className="text-xs bg-background p-3 rounded-md overflow-x-auto">
+                                    {typeof log.changes === 'string' 
+                                      ? log.changes
+                                      : JSON.stringify(log.changes.before || log.changes, null, 2)}
+                                  </pre>
+                                </div>
+                                <div>
+                                  <p className="text-xs font-medium text-muted-foreground mb-1">
+                                    After
+                                  </p>
+                                  <pre className="text-xs bg-background p-3 rounded-md overflow-x-auto">
+                                    {typeof log.changes === 'string'
+                                      ? "N/A"
+                                      : JSON.stringify(log.changes.after || {}, null, 2)}
+                                  </pre>
+                                </div>
                               </div>
-                              <div>
-                                <p className="text-xs font-medium text-muted-foreground mb-1">
-                                  After
-                                </p>
-                                <pre className="text-xs bg-background p-3 rounded-md overflow-x-auto">
-                                  {JSON.stringify(log.changes.after, null, 2)}
-                                </pre>
-                              </div>
-                            </div>
+                            ) : (
+                              <p className="text-sm text-muted-foreground">No change details available</p>
+                            )}
                           </div>
                         </TableCell>
                       </TableRow>
                     )}
                   </>
-                ))}
+                ))
+              )}
               </TableBody>
             </Table>
           </div>

@@ -1,5 +1,7 @@
 "use client";
 
+import { useState } from "react";
+import { useQuery } from "@apollo/client/react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import {
@@ -12,6 +14,9 @@ import {
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { AlertCircle, X } from "lucide-react";
+import { LIST_RETRIES } from "@/lib/graphql/queries";
+import { LoadingTable } from "@/components/shared/loading";
+import { ErrorState } from "@/components/shared/error-state";
 
 /**
  * Retries Page
@@ -23,40 +28,53 @@ import { AlertCircle, X } from "lucide-react";
  * - Cancel retry action
  */
 export default function RetriesPage() {
-  // TODO: Fetch from GraphQL
-  const retries = [
-    {
-      id: "evt_retry_001",
-      channel: "SMS",
-      provider: "Twilio",
-      attemptCount: 2,
-      maxAttempts: 5,
-      nextRetryAt: new Date(Date.now() + 300000).toISOString(),
-      errorTrace: "TwilioException: Rate limit exceeded (429)",
-      recipient: "+1234567890",
-    },
-    {
-      id: "evt_retry_002",
-      channel: "EMAIL",
-      provider: "SendGrid",
-      attemptCount: 1,
-      maxAttempts: 5,
-      nextRetryAt: new Date(Date.now() + 60000).toISOString(),
-      errorTrace: "SendGridException: Temporary server error (503)",
-      recipient: "user@example.com",
-    },
-  ];
+  const [errorModal, setErrorModal] = useState<{ id: string; message: string } | null>(null);
+
+  const { loading, error, data, refetch } = useQuery(LIST_RETRIES, {
+    // Disable polling to reduce server load
+    // pollInterval: 30000,
+  });
+
+  if (loading) {
+    return (
+      <div className="space-y-6">
+        <div>
+          <h2 className="text-3xl font-bold tracking-tight">Retries</h2>
+          <p className="text-muted-foreground">
+            Monitor and manage notifications scheduled for retry
+          </p>
+        </div>
+        <LoadingTable />
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="space-y-6">
+        <div>
+          <h2 className="text-3xl font-bold tracking-tight">Retries</h2>
+          <p className="text-muted-foreground">
+            Monitor and manage notifications scheduled for retry
+          </p>
+        </div>
+        <ErrorState message={error.message} onRetry={() => refetch()} />
+      </div>
+    );
+  }
+
+  const retries = (data as any)?.retries || [];
 
   const handleCancelRetry = (eventId: string) => {
     if (confirm(`Cancel retry for ${eventId}? The notification will be moved to the DLQ.`)) {
       console.log("Cancelling retry:", eventId);
-      // TODO: Call cancelRetry mutation
+      alert("Cancel retry mutation not yet implemented in backend");
+      // TODO: Call cancelRetry mutation when backend is ready
     }
   };
 
-  const handleViewError = (eventId: string, errorTrace: string) => {
-    alert(`Error Trace for ${eventId}:\n\n${errorTrace}`);
-    // TODO: Implement proper modal with formatted error trace
+  const handleViewError = (eventId: string, errorMessage: string) => {
+    setErrorModal({ id: eventId, message: errorMessage });
   };
 
   return (
@@ -96,7 +114,7 @@ export default function RetriesPage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {retries.map((retry) => (
+                  {retries.map((retry: any) => (
                     <TableRow key={retry.id}>
                       <TableCell className="font-mono text-sm">
                         {retry.id}
@@ -121,7 +139,7 @@ export default function RetriesPage() {
                           <Button
                             variant="outline"
                             size="sm"
-                            onClick={() => handleViewError(retry.id, retry.errorTrace)}
+                            onClick={() => handleViewError(retry.id, retry.errorMessage)}
                           >
                             View Error
                           </Button>
@@ -157,23 +175,55 @@ export default function RetriesPage() {
         </Card>
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Avg Retry Time</CardTitle>
+            <CardTitle className="text-sm font-medium">Avg Attempts</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">5m</div>
-            <p className="text-xs text-muted-foreground">until next attempt</p>
+            <div className="text-2xl font-bold">
+              {retries.length > 0 
+                ? (retries.reduce((sum: number, r: any) => sum + r.attemptCount, 0) / retries.length).toFixed(1)
+                : "0"}
+            </div>
+            <p className="text-xs text-muted-foreground">attempts per notification</p>
           </CardContent>
         </Card>
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Success Rate</CardTitle>
+            <CardTitle className="text-sm font-medium">Max Attempts</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">87%</div>
-            <p className="text-xs text-muted-foreground">retries eventually succeed</p>
+            <div className="text-2xl font-bold">
+              {retries.length > 0 ? retries[0].maxAttempts : 5}
+            </div>
+            <p className="text-xs text-muted-foreground">before moving to DLQ</p>
           </CardContent>
         </Card>
       </div>
+
+      {/* Error Modal */}
+      {errorModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <Card className="w-full max-w-2xl max-h-[80vh] overflow-y-auto">
+            <CardHeader>
+              <CardTitle>Error Details</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div>
+                <p className="text-sm font-medium mb-2">Event ID</p>
+                <p className="text-sm text-muted-foreground font-mono">{errorModal.id}</p>
+              </div>
+              <div>
+                <p className="text-sm font-medium mb-2">Error Message</p>
+                <pre className="text-sm bg-muted p-4 rounded-md overflow-x-auto whitespace-pre-wrap">
+                  {errorModal.message}
+                </pre>
+              </div>
+              <Button onClick={() => setErrorModal(null)} variant="outline" className="w-full">
+                Close
+              </Button>
+            </CardContent>
+          </Card>
+        </div>
+      )}
     </div>
   );
 }

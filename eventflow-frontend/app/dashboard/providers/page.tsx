@@ -1,11 +1,15 @@
 "use client";
 
 import { useState } from "react";
+import { useQuery } from "@apollo/client/react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Plus, GripVertical, CheckCircle, XCircle, Zap } from "lucide-react";
+import { LIST_PROVIDERS } from "@/lib/graphql/queries";
+import { LoadingCard } from "@/components/shared/loading";
+import { ErrorState } from "@/components/shared/error-state";
 
 /**
  * Providers Page
@@ -22,54 +26,11 @@ export default function ProvidersPage() {
   const [selectedChannel, setSelectedChannel] = useState("EMAIL");
   const [showAddDialog, setShowAddDialog] = useState(false);
 
-  // TODO: Fetch from GraphQL
-  const providers = {
-    EMAIL: [
-      {
-        id: "1",
-        name: "SendGrid Primary",
-        providerType: "SENDGRID",
-        priority: 1,
-        enabled: true,
-        rateLimit: 1000,
-        lastTested: new Date().toISOString(),
-      },
-      {
-        id: "2",
-        name: "Amazon SES Backup",
-        providerType: "SES",
-        priority: 2,
-        enabled: true,
-        rateLimit: 500,
-        lastTested: new Date().toISOString(),
-      },
-    ],
-    SMS: [
-      {
-        id: "3",
-        name: "Twilio Production",
-        providerType: "TWILIO",
-        priority: 1,
-        enabled: true,
-        rateLimit: 100,
-        lastTested: new Date().toISOString(),
-      },
-    ],
-    PUSH: [
-      {
-        id: "4",
-        name: "Firebase Cloud Messaging",
-        providerType: "FCM",
-        priority: 1,
-        enabled: true,
-        rateLimit: 1000,
-        lastTested: new Date().toISOString(),
-      },
-    ],
-    WEBHOOK: [],
-  };
-
-  const channelProviders = providers[selectedChannel as keyof typeof providers] || [];
+  const { data, loading, error, refetch } = useQuery(LIST_PROVIDERS, {
+    variables: {
+      channel: selectedChannel,
+    },
+  });
 
   const handleTestConnection = async (providerId: string) => {
     console.log("Testing connection for provider:", providerId);
@@ -79,6 +40,52 @@ export default function ProvidersPage() {
   const handleAddProvider = () => {
     setShowAddDialog(true);
   };
+
+  if (loading) {
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="text-3xl font-bold tracking-tight">Providers</h2>
+            <p className="text-muted-foreground">
+              Configure third-party integrations and failover priorities
+            </p>
+          </div>
+          <Button onClick={handleAddProvider}>
+            <Plus className="mr-2 h-4 w-4" />
+            Add Provider
+          </Button>
+        </div>
+        <div className="space-y-3">
+          {Array.from({ length: 3 }).map((_, i) => (
+            <LoadingCard key={i} />
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="text-3xl font-bold tracking-tight">Providers</h2>
+            <p className="text-muted-foreground">
+              Configure third-party integrations and failover priorities
+            </p>
+          </div>
+        </div>
+        <ErrorState 
+          title="Failed to load providers"
+          message={error.message}
+          onRetry={() => refetch()}
+        />
+      </div>
+    );
+  }
+
+  const channelProviders = (data as any)?.providers || [];
 
   return (
     <div className="space-y-6">
@@ -127,7 +134,7 @@ export default function ProvidersPage() {
         </Card>
       ) : (
         <div className="space-y-3">
-          {channelProviders.map((provider, index) => (
+          {channelProviders.map((provider: any, index: number) => (
             <Card key={provider.id} className="hover:border-primary transition-colors">
               <CardHeader>
                 <div className="flex items-center justify-between">
@@ -149,16 +156,16 @@ export default function ProvidersPage() {
                 </div>
               </CardHeader>
               <CardContent>
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-6 text-sm">
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                  <div className="flex flex-col sm:flex-row items-start sm:items-center gap-6 text-sm">
                     <div>
                       <span className="text-muted-foreground">Rate Limit: </span>
                       <span className="font-medium">{provider.rateLimit}/min</span>
                     </div>
                     <div>
-                      <span className="text-muted-foreground">Last Tested: </span>
+                      <span className="text-muted-foreground">Updated: </span>
                       <span className="font-medium">
-                        {new Date(provider.lastTested).toLocaleDateString()}
+                        {new Date(provider.updatedAt).toLocaleDateString()}
                       </span>
                     </div>
                   </div>
@@ -169,7 +176,7 @@ export default function ProvidersPage() {
                       onClick={() => handleTestConnection(provider.id)}
                     >
                       <Zap className="mr-2 h-4 w-4" />
-                      Test Connection
+                      Test
                     </Button>
                     <Button variant="outline" size="sm">
                       Edit

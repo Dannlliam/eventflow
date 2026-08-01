@@ -1,6 +1,8 @@
 "use client";
 
 import { useState } from "react";
+import { useQuery } from "@apollo/client/react";
+import { useMutation } from "@apollo/client/react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -12,7 +14,11 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Plus, Copy, Eye, EyeOff, Trash2 } from "lucide-react";
+import { Plus, Copy, Trash2 } from "lucide-react";
+import { GET_WORKSPACE_CONFIG } from "@/lib/graphql/queries";
+import { GENERATE_API_KEY, DEACTIVATE_API_KEY } from "@/lib/graphql/mutations";
+import { LoadingCard, LoadingTable } from "@/components/shared/loading";
+import { ErrorState } from "@/components/shared/error-state";
 
 /**
  * Settings Page
@@ -27,29 +33,64 @@ import { Plus, Copy, Eye, EyeOff, Trash2 } from "lucide-react";
 export default function SettingsPage() {
   const [showGenerateKeyDialog, setShowGenerateKeyDialog] = useState(false);
   const [generatedKey, setGeneratedKey] = useState<string | null>(null);
+  const [keyDescription, setKeyDescription] = useState("");
 
-  // TODO: Fetch from GraphQL
-  const apiKeys = [
-    {
-      id: "1",
-      keyPrefix: "ef_live_abc",
-      description: "Production API Key",
-      lastUsed: new Date().toISOString(),
-      createdAt: new Date(Date.now() - 7 * 86400000).toISOString(),
-    },
-    {
-      id: "2",
-      keyPrefix: "ef_test_xyz",
-      description: "Testing Environment",
-      lastUsed: new Date(Date.now() - 86400000).toISOString(),
-      createdAt: new Date(Date.now() - 30 * 86400000).toISOString(),
-    },
-  ];
+  const { loading, error, data, refetch } = useQuery(GET_WORKSPACE_CONFIG);
+  const [generateApiKey] = useMutation(GENERATE_API_KEY);
+  const [deactivateApiKey] = useMutation(DEACTIVATE_API_KEY);
 
-  const handleGenerateKey = () => {
-    // TODO: Call generateApiKey mutation
-    const mockKey = "ef_live_" + Math.random().toString(36).substring(2, 15);
-    setGeneratedKey(mockKey);
+  if (loading) {
+    return (
+      <div className="space-y-6">
+        <div>
+          <h2 className="text-3xl font-bold tracking-tight">Settings</h2>
+          <p className="text-muted-foreground">
+            Manage workspace configuration and API access
+          </p>
+        </div>
+        <LoadingCard />
+        <LoadingTable />
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="space-y-6">
+        <div>
+          <h2 className="text-3xl font-bold tracking-tight">Settings</h2>
+          <p className="text-muted-foreground">
+            Manage workspace configuration and API access
+          </p>
+        </div>
+        <ErrorState message={error.message} onRetry={() => refetch()} />
+      </div>
+    );
+  }
+
+  const workspaceConfig = (data as any)?.workspaceConfig || {};
+  const apiKeys = workspaceConfig.apiKeys || [];
+
+  const handleGenerateKey = async () => {
+    if (!keyDescription.trim()) {
+      alert("Please enter a description for the API key");
+      return;
+    }
+
+    try {
+      const result = await generateApiKey({
+        variables: { description: keyDescription }
+      });
+      
+      if ((result.data as any)?.generateApiKey) {
+        setGeneratedKey((result.data as any).generateApiKey.fullKey);
+        setKeyDescription("");
+        refetch();
+      }
+    } catch (err) {
+      console.error("Failed to generate API key:", err);
+      alert("Failed to generate API key. Please try again.");
+    }
   };
 
   const handleCopyKey = () => {
@@ -59,10 +100,17 @@ export default function SettingsPage() {
     }
   };
 
-  const handleRevokeKey = (keyId: string, keyPrefix: string) => {
+  const handleRevokeKey = async (keyId: string, keyPrefix: string) => {
     if (confirm(`Are you sure you want to revoke API key ${keyPrefix}***? This action cannot be undone.`)) {
-      console.log("Revoking key:", keyId);
-      // TODO: Call deactivateApiKey mutation
+      try {
+        await deactivateApiKey({
+          variables: { keyId }
+        });
+        refetch();
+      } catch (err) {
+        console.error("Failed to revoke API key:", err);
+        alert("Failed to revoke API key. Please try again.");
+      }
     }
   };
 
@@ -84,7 +132,7 @@ export default function SettingsPage() {
         <CardContent className="space-y-4">
           <div className="space-y-2">
             <label className="text-sm font-medium">Workspace Name</label>
-            <Input defaultValue="My EventFlow Workspace" />
+            <Input defaultValue={workspaceConfig.name || "My EventFlow Workspace"} />
           </div>
           <div className="space-y-2">
             <label className="text-sm font-medium">Default Timezone</label>
@@ -96,7 +144,9 @@ export default function SettingsPage() {
               <option value="Asia/Tokyo">Asia/Tokyo</option>
             </select>
           </div>
-          <Button>Save Changes</Button>
+          <Button onClick={() => alert("Update workspace mutation not yet implemented")}>
+            Save Changes
+          </Button>
         </CardContent>
       </Card>
 
@@ -129,29 +179,37 @@ export default function SettingsPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {apiKeys.map((key) => (
-                  <TableRow key={key.id}>
-                    <TableCell className="font-mono text-sm">
-                      {key.keyPrefix}***
-                    </TableCell>
-                    <TableCell>{key.description}</TableCell>
-                    <TableCell className="text-muted-foreground">
-                      {new Date(key.lastUsed).toLocaleDateString()}
-                    </TableCell>
-                    <TableCell className="text-muted-foreground">
-                      {new Date(key.createdAt).toLocaleDateString()}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <Button
-                        variant="destructive"
-                        size="sm"
-                        onClick={() => handleRevokeKey(key.id, key.keyPrefix)}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
+                {apiKeys.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
+                      No API keys yet. Generate one to get started.
                     </TableCell>
                   </TableRow>
-                ))}
+                ) : (
+                  apiKeys.map((key: any) => (
+                    <TableRow key={key.id}>
+                      <TableCell className="font-mono text-sm">
+                        {key.keyPrefix}***
+                      </TableCell>
+                      <TableCell>{key.description}</TableCell>
+                      <TableCell className="text-muted-foreground">
+                        {key.lastUsedAt ? new Date(key.lastUsedAt).toLocaleDateString() : "Never"}
+                      </TableCell>
+                      <TableCell className="text-muted-foreground">
+                        {new Date(key.createdAt).toLocaleDateString()}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <Button
+                          variant="destructive"
+                          size="sm"
+                          onClick={() => handleRevokeKey(key.id, key.keyPrefix)}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
               </TableBody>
             </Table>
           </div>
@@ -203,7 +261,11 @@ export default function SettingsPage() {
             <CardContent className="space-y-4">
               <div className="space-y-2">
                 <label className="text-sm font-medium">Description</label>
-                <Input placeholder="e.g., Production API Key" />
+                <Input 
+                  placeholder="e.g., Production API Key" 
+                  value={keyDescription}
+                  onChange={(e) => setKeyDescription(e.target.value)}
+                />
               </div>
               <div className="flex gap-2">
                 <Button className="flex-1" onClick={handleGenerateKey}>
@@ -211,7 +273,10 @@ export default function SettingsPage() {
                 </Button>
                 <Button 
                   variant="outline" 
-                  onClick={() => setShowGenerateKeyDialog(false)}
+                  onClick={() => {
+                    setShowGenerateKeyDialog(false);
+                    setKeyDescription("");
+                  }}
                 >
                   Cancel
                 </Button>

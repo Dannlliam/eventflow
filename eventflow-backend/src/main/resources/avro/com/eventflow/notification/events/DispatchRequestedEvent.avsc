@@ -1,0 +1,17 @@
+{
+  "type": "record",
+  "name": "DispatchRequestedEvent",
+  "namespace": "com.eventflow.notification.events",
+  "doc": "Emitted when a notification is ready for provider dispatch",
+  "fields": [
+    { "name": "eventId", "type": { "type": "string", "logicalType": "uuid" }, "doc": "Unique identifier for this event" },
+    { "name": "notificationId", "type": { "type": "string", "logicalType": "uuid" } },
+    { "name": "workspaceId", "type": { "type": "string", "logicalType": "uuid" } },
+    { "name": "channel", "type": { "type": "enum", "name": "Channel", "symbols": ["EMAIL", "SMS", "PUSH", "WEBHOOK"] } },
+    { "name": "providerType", "type": "string" },
+    { "name": "recipient", "type": "string" },
+    { "name": "subject", "type": ["null", "string"], "default": null },
+    { "name": "body", "type": "string" },
+    { "name": "timestamp", "type": { "type": "long", "logicalType": "timestamp-millis" } }
+  ]
+}

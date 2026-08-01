@@ -1,8 +1,9 @@
 "use client";
 
 import { useAuth } from "@/contexts/auth-context";
+import { useTheme } from "@/contexts/theme-context";
 import { useRouter } from "next/navigation";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { 
   LayoutDashboard, 
@@ -15,7 +16,9 @@ import {
   BarChart3,
   LogOut,
   Moon,
-  Sun
+  Sun,
+  Menu,
+  X
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
@@ -30,7 +33,9 @@ export default function DashboardLayout({
   children: React.ReactNode;
 }) {
   const { user, logout, isLoading } = useAuth();
+  const { theme, setTheme, resolvedTheme } = useTheme();
   const router = useRouter();
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   useEffect(() => {
     if (!isLoading && !user) {
@@ -74,14 +79,35 @@ export default function DashboardLayout({
 
   return (
     <div className="flex h-screen bg-background">
+      {/* Mobile Menu Overlay */}
+      {isMobileMenuOpen && (
+        <div 
+          className="fixed inset-0 bg-black/50 z-40 lg:hidden"
+          onClick={() => setIsMobileMenuOpen(false)}
+        />
+      )}
+
       {/* Sidebar - 240px fixed width */}
-      <aside className="w-60 border-r bg-card flex flex-col">
+      <aside className={`
+        fixed lg:static inset-y-0 left-0 z-50
+        w-60 border-r bg-card flex flex-col
+        transform transition-transform duration-200 ease-in-out
+        ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
+      `}>
         {/* Logo */}
-        <div className="h-16 flex items-center px-6 border-b">
-          <div className="h-8 w-8 rounded bg-primary flex items-center justify-center">
-            <span className="text-lg font-bold text-primary-foreground">EF</span>
+        <div className="h-16 flex items-center justify-between px-6 border-b">
+          <div className="flex items-center">
+            <div className="h-8 w-8 rounded bg-primary flex items-center justify-center">
+              <span className="text-lg font-bold text-primary-foreground">EF</span>
+            </div>
+            <span className="ml-3 text-lg font-semibold">EventFlow</span>
           </div>
-          <span className="ml-3 text-lg font-semibold">EventFlow</span>
+          <button 
+            className="lg:hidden"
+            onClick={() => setIsMobileMenuOpen(false)}
+          >
+            <X className="h-5 w-5" />
+          </button>
         </div>
 
         {/* Navigation */}
@@ -96,6 +122,7 @@ export default function DashboardLayout({
                   <Link
                     key={item.name}
                     href={item.href}
+                    onClick={() => setIsMobileMenuOpen(false)}
                     className="flex items-center px-3 py-2 text-sm font-medium rounded-md hover:bg-accent hover:text-accent-foreground transition-colors"
                   >
                     <item.icon className="mr-3 h-5 w-5" />
@@ -136,20 +163,34 @@ export default function DashboardLayout({
       {/* Main Content */}
       <div className="flex-1 flex flex-col overflow-hidden">
         {/* Topbar */}
-        <header className="h-16 border-b bg-card px-6 flex items-center justify-between">
-          <div className="flex items-center">
+        <header className="h-16 border-b bg-card px-4 lg:px-6 flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <button 
+              className="lg:hidden"
+              onClick={() => setIsMobileMenuOpen(true)}
+            >
+              <Menu className="h-5 w-5" />
+            </button>
             <h1 className="text-xl font-semibold">Dashboard</h1>
           </div>
           <div className="flex items-center gap-2">
-            <Button variant="ghost" size="icon" aria-label="Toggle theme">
-              <Sun className="h-5 w-5 rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0" />
-              <Moon className="absolute h-5 w-5 rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100" />
+            <Button 
+              variant="ghost" 
+              size="icon" 
+              onClick={() => setTheme(resolvedTheme === "dark" ? "light" : "dark")}
+              aria-label="Toggle theme"
+            >
+              {resolvedTheme === "dark" ? (
+                <Sun className="h-5 w-5" />
+              ) : (
+                <Moon className="h-5 w-5" />
+              )}
             </Button>
           </div>
         </header>
 
         {/* Page Content */}
-        <main className="flex-1 overflow-y-auto p-6">
+        <main className="flex-1 overflow-y-auto p-4 lg:p-6">
           {children}
         </main>
       </div>

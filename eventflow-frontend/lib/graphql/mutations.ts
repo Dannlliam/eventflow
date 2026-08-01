@@ -30,12 +30,11 @@ export const PUBLISH_TEMPLATE_VERSION = gql`
   ) {
     publishTemplateVersion(slug: $slug, body: $body, subject: $subject) {
       id
-      templateSlug
       version
+      channel
       subjectTemplate
       bodyTemplate
       isActive
-      createdBy
       createdAt
     }
   }
@@ -68,15 +67,14 @@ export const SAVE_PROVIDER_CONFIG = gql`
   mutation SaveProviderConfig($input: ProviderInput!) {
     saveProviderConfig(input: $input) {
       id
-      workspaceId
-      channel
-      providerType
       name
-      priority
-      rateLimit
+      providerType
+      channel
+      isPrimary
       enabled
+      rateLimit
+      settings
       createdAt
-      updatedAt
     }
   }
 `;

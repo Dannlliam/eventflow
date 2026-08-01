@@ -1,5 +1,6 @@
 "use client";
 
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Table,
@@ -10,6 +11,9 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from "recharts";
+import { LoadingCard, LoadingTable } from "@/components/shared/loading";
+import { ErrorState } from "@/components/shared/error-state";
 
 /**
  * Queues Page
@@ -22,45 +26,81 @@ import { Badge } from "@/components/ui/badge";
  * - Alert highlighting (>5000 amber, >50000 red)
  */
 export default function QueuesPage() {
-  // TODO: Fetch from Kafka metrics API
-  const topics = [
-    {
-      name: "notification.created",
-      partitions: 10,
-      consumerLag: 45,
-      messagesPerSec: 120,
-    },
-    {
-      name: "notification.retry-1",
-      partitions: 5,
-      consumerLag: 3200,
-      messagesPerSec: 25,
-    },
-    {
-      name: "notification.retry-2",
-      partitions: 5,
-      consumerLag: 12000,
-      messagesPerSec: 8,
-    },
-    {
-      name: "dispatch.requested",
-      partitions: 10,
-      consumerLag: 120,
-      messagesPerSec: 95,
-    },
-    {
-      name: "dispatch.result",
-      partitions: 10,
-      consumerLag: 80,
-      messagesPerSec: 90,
-    },
-    {
-      name: "notification.dlq",
-      partitions: 3,
-      consumerLag: 0,
-      messagesPerSec: 2,
-    },
-  ];
+  const [topics, setTopics] = useState<any[]>([]);
+  const [lagHistory, setLagHistory] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const fetchMetrics = async () => {
+      try {
+        setLoading(true);
+        const [topicsRes, lagHistoryRes] = await Promise.all([
+          fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'}/api/v1/kafka/metrics/topics`),
+          fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'}/api/v1/kafka/metrics/lag-history`)
+        ]);
+
+        if (!topicsRes.ok || !lagHistoryRes.ok) {
+          throw new Error('Failed to fetch Kafka metrics');
+        }
+
+        const topicsData = await topicsRes.json();
+        const lagHistoryData = await lagHistoryRes.json();
+
+        setTopics(topicsData);
+        setLagHistory(lagHistoryData);
+        setError(null);
+      } catch (err) {
+        console.error('Error fetching Kafka metrics:', err);
+        setError(err instanceof Error ? err.message : 'Failed to load Kafka metrics');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchMetrics();
+    const interval = setInterval(fetchMetrics, 30000); // Refresh every 30 seconds
+
+    return () => clearInterval(interval);
+  }, []);
+
+  if (loading) {
+    return (
+      <div className="space-y-6">
+        <div>
+          <h2 className="text-3xl font-bold tracking-tight">Queues</h2>
+          <p className="text-muted-foreground">
+            Monitor Kafka topics and consumer lag
+          </p>
+        </div>
+        <div className="grid gap-4 md:grid-cols-4">
+          <LoadingCard />
+          <LoadingCard />
+          <LoadingCard />
+          <LoadingCard />
+        </div>
+        <LoadingTable />
+        <LoadingCard />
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="space-y-6">
+        <div>
+          <h2 className="text-3xl font-bold tracking-tight">Queues</h2>
+          <p className="text-muted-foreground">
+            Monitor Kafka topics and consumer lag
+          </p>
+        </div>
+        <ErrorState 
+          message={error} 
+          onRetry={() => window.location.reload()} 
+        />
+      </div>
+    );
+  }
 
   const getLagBadge = (lag: number) => {
     if (lag > 50000) {
@@ -162,11 +202,23 @@ export default function QueuesPage() {
                       {topic.consumerLag.toLocaleString()}
                     </TableCell>
                     <TableCell className="text-muted-foreground">
-                      {topic.messagesPerSec}
+                      {topic.messagesPerSec.toFixed(1)}
                     </TableCell>
                     <TableCell>{getLagBadge(topic.consumerLag)}</TableCell>
                   </TableRow>
                 ))}
+                {topics.length === 0 && (
+                  <TableRow>
+                    <TableCell colSpan={5} className="text-center py-12">
+                      <div className="flex flex-col items-center gap-2">
+                        <h3 className="text-lg font-semibold">No Kafka topics found</h3>
+                        <p className="text-sm text-muted-foreground max-w-sm">
+                          Kafka metrics endpoint is not yet implemented. Topics will appear here once configured.
+                        </p>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                )}
               </TableBody>
             </Table>
           </div>
@@ -174,17 +226,71 @@ export default function QueuesPage() {
       </Card>
 
       {/* Lag Chart */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Consumer Lag (Last 24 Hours)</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="h-[300px] flex items-center justify-center text-muted-foreground">
-            {/* TODO: Integrate Recharts line chart */}
-            Historical lag chart will be rendered here (Recharts LineChart)
-          </div>
-        </CardContent>
-      </Card>
+      {lagHistory.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Consumer Lag (Last 24 Hours)</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="h-[300px]">
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={lagHistory}>
+                  <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                  <XAxis 
+                    dataKey="time" 
+                    className="text-xs"
+                    tick={{ fill: 'hsl(var(--muted-foreground))' }}
+                  />
+                  <YAxis 
+                    className="text-xs"
+                    tick={{ fill: 'hsl(var(--muted-foreground))' }}
+                  />
+                  <Tooltip 
+                    contentStyle={{ 
+                      backgroundColor: 'hsl(var(--card))', 
+                      border: '1px solid hsl(var(--border))',
+                      borderRadius: '6px'
+                    }}
+                  />
+                  <Legend />
+                  <Line 
+                    type="monotone" 
+                    dataKey="created" 
+                    stroke="#10b981" 
+                    strokeWidth={2}
+                    name="notification.created"
+                    dot={false}
+                  />
+                  <Line 
+                    type="monotone" 
+                    dataKey="retry1" 
+                    stroke="#f59e0b" 
+                    strokeWidth={2}
+                    name="notification.retry-1"
+                    dot={false}
+                  />
+                  <Line 
+                    type="monotone" 
+                    dataKey="retry2" 
+                    stroke="#ef4444" 
+                    strokeWidth={2}
+                    name="notification.retry-2"
+                    dot={false}
+                  />
+                  <Line 
+                    type="monotone" 
+                    dataKey="dispatch" 
+                    stroke="#6366f1" 
+                    strokeWidth={2}
+                    name="dispatch.requested"
+                    dot={false}
+                  />
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }

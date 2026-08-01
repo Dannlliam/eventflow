@@ -1,8 +1,12 @@
 "use client";
 
+import { useQuery } from "@apollo/client/react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Plus, Mail, MessageSquare, Bell, Webhook, FileText } from "lucide-react";
+import { LIST_TEMPLATES } from "@/lib/graphql/queries";
+import { LoadingCard } from "@/components/shared/loading";
+import { ErrorState } from "@/components/shared/error-state";
 
 /**
  * Templates Page
@@ -15,33 +19,7 @@ import { Plus, Mail, MessageSquare, Bell, Webhook, FileText } from "lucide-react
  * - Version history side drawer
  */
 export default function TemplatesPage() {
-  // TODO: Fetch templates from GraphQL
-  const templates = [
-    {
-      id: "1",
-      slug: "welcome-email",
-      channel: "EMAIL",
-      description: "Welcome email sent to new users",
-      versions: 3,
-      updatedAt: new Date().toISOString(),
-    },
-    {
-      id: "2",
-      slug: "password-reset",
-      channel: "EMAIL",
-      description: "Password reset notification",
-      versions: 2,
-      updatedAt: new Date().toISOString(),
-    },
-    {
-      id: "3",
-      slug: "order-confirmation",
-      channel: "SMS",
-      description: "Order confirmation SMS",
-      versions: 5,
-      updatedAt: new Date().toISOString(),
-    },
-  ];
+  const { data, loading, error, refetch } = useQuery(LIST_TEMPLATES);
 
   const getChannelIcon = (channel: string) => {
     switch (channel) {
@@ -54,9 +32,55 @@ export default function TemplatesPage() {
       case "WEBHOOK":
         return <Webhook className="h-5 w-5" />;
       default:
-        return null;
+        return <FileText className="h-5 w-5" />;
     }
   };
+
+  if (loading) {
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="text-3xl font-bold tracking-tight">Templates</h2>
+            <p className="text-muted-foreground">
+              Create and manage notification templates
+            </p>
+          </div>
+          <Button>
+            <Plus className="mr-2 h-4 w-4" />
+            New Template
+          </Button>
+        </div>
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+          {Array.from({ length: 6 }).map((_, i) => (
+            <LoadingCard key={i} />
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="text-3xl font-bold tracking-tight">Templates</h2>
+            <p className="text-muted-foreground">
+              Create and manage notification templates
+            </p>
+          </div>
+        </div>
+        <ErrorState 
+          title="Failed to load templates"
+          message={error.message}
+          onRetry={() => refetch()}
+        />
+      </div>
+    );
+  }
+
+  const templates = (data as any)?.templates || [];
 
   return (
     <div className="space-y-6">
@@ -75,7 +99,7 @@ export default function TemplatesPage() {
 
       {/* Template Grid */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-        {templates.map((template) => (
+        {templates.map((template: any) => (
           <Card key={template.id} className="cursor-pointer hover:border-primary transition-colors">
             <CardHeader>
               <div className="flex items-center justify-between">
@@ -84,10 +108,10 @@ export default function TemplatesPage() {
                   <CardTitle className="text-base">{template.slug}</CardTitle>
                 </div>
                 <span className="text-xs text-muted-foreground">
-                  v{template.versions}
+                  v{template.versions?.length || 0}
                 </span>
               </div>
-              <CardDescription>{template.description}</CardDescription>
+              <CardDescription>{template.description || "No description"}</CardDescription>
             </CardHeader>
             <CardContent>
               <div className="flex items-center justify-between text-sm">

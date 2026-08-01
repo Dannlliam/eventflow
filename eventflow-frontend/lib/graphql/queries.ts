@@ -34,10 +34,8 @@ export const GET_NOTIFICATION = gql`
       events {
         id
         eventType
-        status
-        provider
+        providerResponse
         errorMessage
-        metadata
         createdAt
       }
     }
@@ -78,7 +76,6 @@ export const LIST_NOTIFICATIONS = gql`
         endCursor
         totalCount
       }
-      totalCount
     }
   }
 `;
@@ -94,14 +91,22 @@ export const GET_TEMPLATE = gql`
       slug
       channel
       description
-      versions {
+      activeVersion {
         id
-        templateSlug
         version
+        channel
         subjectTemplate
         bodyTemplate
         isActive
-        createdBy
+        createdAt
+      }
+      versions {
+        id
+        version
+        channel
+        subjectTemplate
+        bodyTemplate
+        isActive
         createdAt
       }
       createdAt
@@ -117,6 +122,11 @@ export const LIST_TEMPLATES = gql`
       slug
       channel
       description
+      activeVersion {
+        id
+        version
+        isActive
+      }
       versions {
         id
         version
@@ -136,15 +146,14 @@ export const LIST_PROVIDERS = gql`
   query ListProviders($channel: String) {
     providers(channel: $channel) {
       id
-      workspaceId
-      channel
-      providerType
       name
-      priority
-      rateLimit
+      providerType
+      channel
+      isPrimary
       enabled
+      rateLimit
+      settings
       createdAt
-      updatedAt
     }
   }
 `;
@@ -167,25 +176,26 @@ export const GET_ANALYTICS = gql`
       workspaceId: $workspaceId
     ) {
       totalSent
+      totalDelivered
+      totalFailed
+      totalDlq
       deliveryRate
-      avgProcessingLatency
-      dlqCount
-      channelBreakdown {
-        channel
-        count
-        successRate
-      }
-      providerLatency {
-        provider
-        p50Latency
-        p99Latency
-        successRate
-      }
       dailyStats {
         date
+        channel
         sent
         delivered
         failed
+        dlq
+      }
+      channelBreakdown {
+        channel
+        count
+        percentage
+      }
+      topErrors {
+        errorMessage
+        count
       }
     }
   }
@@ -205,9 +215,7 @@ export const LIST_AUDIT_LOGS = gql`
       edges {
         node {
           id
-          workspaceId
           userId
-          userName
           action
           entityType
           entityId
@@ -222,7 +230,6 @@ export const LIST_AUDIT_LOGS = gql`
         endCursor
         totalCount
       }
-      totalCount
     }
   }
 `;
@@ -234,10 +241,64 @@ export const LIST_AUDIT_LOGS = gql`
 export const GET_WORKSPACE_CONFIG = gql`
   query GetWorkspaceConfig {
     workspaceConfig {
+      apiKeys {
+        id
+        keyPrefix
+        description
+        active
+        lastUsedAt
+        createdAt
+      }
+      webhookSecrets {
+        id
+        label
+        createdAt
+      }
+    }
+  }
+`;
+
+export const LIST_USERS = gql`
+  query ListUsers {
+    users {
       id
+      workspaceId
+      email
       name
-      timezone
+      role
+      status
+      lastLogin
       createdAt
+    }
+  }
+`;
+
+export const LIST_RETRIES = gql`
+  query ListRetries {
+    retries {
+      id
+      notificationId
+      channel
+      provider
+      recipient
+      attemptCount
+      maxAttempts
+      nextRetryAt
+      errorMessage
+      createdAt
+    }
+  }
+`;
+
+export const LIST_DLQ_MESSAGES = gql`
+  query ListDlqMessages {
+    dlqMessages {
+      id
+      originalTopic
+      failureReason
+      attemptCount
+      failedAt
+      payload
     }
   }
 `;

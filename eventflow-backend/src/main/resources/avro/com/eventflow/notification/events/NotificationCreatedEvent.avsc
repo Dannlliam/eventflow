@@ -1,0 +1,22 @@
+{
+  "type": "record",
+  "name": "NotificationCreatedEvent",
+  "namespace": "com.eventflow.notification.events",
+  "doc": "Emitted when a notification request is ingested and persisted",
+  "fields": [
+    { "name": "eventId", "type": { "type": "string", "logicalType": "uuid" }, "doc": "Unique identifier for this event" },
+    { "name": "notificationId", "type": { "type": "string", "logicalType": "uuid" } },
+    { "name": "workspaceId", "type": { "type": "string", "logicalType": "uuid" } },
+    { "name": "channel", "type": { "type": "enum", "name": "Channel", "symbols": ["EMAIL", "SMS", "PUSH", "WEBHOOK"] } },
+    { "name": "recipient", "type": { "type": "record", "name": "Recipient", "fields": [
+        { "name": "email", "type": ["null", "string"], "default": null },
+        { "name": "phone", "type": ["null", "string"], "default": null },
+        { "name": "deviceToken", "type": ["null", "string"], "default": null },
+        { "name": "webhookUrl", "type": ["null", "string"], "default": null }
+    ]}},
+    { "name": "templateSlug", "type": ["null", "string"], "default": null },
+    { "name": "payload", "type": { "type": "map", "values": "string" }, "doc": "Dynamic variables for template rendering" },
+    { "name": "metadata", "type": { "type": "map", "values": "string" }, "default": {} },
+    { "name": "timestamp", "type": { "type": "long", "logicalType": "timestamp-millis" } }
+  ]
+}

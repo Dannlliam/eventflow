@@ -1,6 +1,8 @@
 "use client";
 
 import { useState } from "react";
+import { useQuery } from "@apollo/client/react";
+import { useMutation } from "@apollo/client/react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import {
@@ -12,6 +14,10 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { AlertCircle, RotateCw, Trash2, CheckSquare, Square } from "lucide-react";
+import { LIST_DLQ_MESSAGES } from "@/lib/graphql/queries";
+import { REPLAY_DLQ_MESSAGE, REPLAY_DLQ_BATCH } from "@/lib/graphql/mutations";
+import { LoadingTable } from "@/components/shared/loading";
+import { ErrorState } from "@/components/shared/error-state";
 
 /**
  * Dead Letter Queue (DLQ) Page
@@ -25,26 +31,46 @@ import { AlertCircle, RotateCw, Trash2, CheckSquare, Square } from "lucide-react
  * - Batch replay for multiple messages
  */
 export default function DlqPage() {
-  const [selectedMessage, setSelectedMessage] = useState<string | null>(null);
+  const [selectedMessage, setSelectedMessage] = useState<any | null>(null);
   const [selectedMessages, setSelectedMessages] = useState<Set<string>>(new Set());
 
-  // TODO: Fetch DLQ messages from GraphQL
-  const dlqMessages = [
-    {
-      id: "evt_failed_001",
-      originalTopic: "notification.created",
-      failureReason: "Provider returned 500: Internal Server Error",
-      failedAt: new Date().toISOString(),
-      attemptCount: 5,
-    },
-    {
-      id: "evt_failed_002",
-      originalTopic: "notification.retry-3",
-      failureReason: "Invalid phone number format",
-      failedAt: new Date().toISOString(),
-      attemptCount: 3,
-    },
-  ];
+  const { loading, error, data, refetch } = useQuery(LIST_DLQ_MESSAGES, {
+    // Disable polling to reduce server load
+    // pollInterval: 60000,
+  });
+
+  const [replayDlqMessage] = useMutation(REPLAY_DLQ_MESSAGE);
+  const [replayDlqBatch] = useMutation(REPLAY_DLQ_BATCH);
+
+  if (loading) {
+    return (
+      <div className="space-y-6">
+        <div>
+          <h2 className="text-3xl font-bold tracking-tight">Dead Letter Queue</h2>
+          <p className="text-muted-foreground">
+            Manage failed messages that exhausted all retry attempts
+          </p>
+        </div>
+        <LoadingTable />
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="space-y-6">
+        <div>
+          <h2 className="text-3xl font-bold tracking-tight">Dead Letter Queue</h2>
+          <p className="text-muted-foreground">
+            Manage failed messages that exhausted all retry attempts
+          </p>
+        </div>
+        <ErrorState message={error.message} onRetry={() => refetch()} />
+      </div>
+    );
+  }
+
+  const dlqMessages = (data as any)?.dlqMessages || [];
 
   const toggleMessageSelection = (eventId: string) => {
     const newSelection = new Set(selectedMessages);
@@ -60,14 +86,27 @@ export default function DlqPage() {
     if (selectedMessages.size === dlqMessages.length) {
       setSelectedMessages(new Set());
     } else {
-      setSelectedMessages(new Set(dlqMessages.map(m => m.id)));
+      setSelectedMessages(new Set(dlqMessages.map((m: any) => m.id)));
     }
   };
 
   const handleReplay = async (eventId: string) => {
     if (confirm(`Are you sure you want to replay message ${eventId}? This will re-queue it for processing.`)) {
-      // TODO: Call replayDlqMessage GraphQL mutation
-      console.log("Replaying message:", eventId);
+      try {
+        const result = await replayDlqMessage({
+          variables: { eventId }
+        });
+        
+        if ((result.data as any)?.replayDlqMessage) {
+          alert("Message replayed successfully!");
+          refetch();
+        } else {
+          alert("Failed to replay message. Please check logs.");
+        }
+      } catch (err) {
+        console.error("Failed to replay message:", err);
+        alert("Failed to replay message. Please try again.");
+      }
     }
   };
 
@@ -76,9 +115,21 @@ export default function DlqPage() {
     if (count === 0) return;
     
     if (confirm(`Are you sure you want to replay ${count} message(s)? This will re-queue them for processing.`)) {
-      // TODO: Call replayDlqBatch GraphQL mutation
-      console.log("Replaying messages:", Array.from(selectedMessages));
-      setSelectedMessages(new Set());
+      try {
+        const result = await replayDlqBatch({
+          variables: { eventIds: Array.from(selectedMessages) }
+        });
+        
+        const succeeded = (result.data as any)?.replayDlqBatch?.succeeded || 0;
+        const failed = (result.data as any)?.replayDlqBatch?.failed || 0;
+        
+        alert(`Batch replay complete!\nSucceeded: ${succeeded}\nFailed: ${failed}`);
+        setSelectedMessages(new Set());
+        refetch();
+      } catch (err) {
+        console.error("Failed to replay batch:", err);
+        alert("Failed to replay batch. Please try again.");
+      }
     }
   };
 
@@ -88,8 +139,9 @@ export default function DlqPage() {
     );
     
     if (confirmText === eventId) {
-      // TODO: Call discardDlqMessage mutation
       console.log("Discarding message:", eventId);
+      alert("Discard DLQ message mutation not yet implemented in backend");
+      // TODO: Call discardDlqMessage mutation when backend is ready
     }
   };
 
@@ -150,11 +202,11 @@ export default function DlqPage() {
                     </TableCell>
                   </TableRow>
                 ) : (
-                  dlqMessages.map((message) => (
+                  dlqMessages.map((message: any) => (
                     <TableRow
                       key={message.id}
                       className="cursor-pointer"
-                      onClick={() => setSelectedMessage(message.id)}
+                      onClick={() => setSelectedMessage(message)}
                     >
                       <TableCell onClick={(e) => e.stopPropagation()}>
                         <button
@@ -214,28 +266,62 @@ export default function DlqPage() {
         </CardContent>
       </Card>
 
-      {/* Detail Modal - TODO: Implement proper modal with JSON viewer */}
+      {/* Detail Modal */}
       {selectedMessage && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <Card className="w-full max-w-2xl max-h-[80vh] overflow-y-auto">
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <Card className="w-full max-w-3xl max-h-[80vh] overflow-y-auto">
             <CardHeader>
               <CardTitle>Message Details</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
                 <div>
-                  <p className="text-sm font-medium">Event ID</p>
-                  <p className="text-sm text-muted-foreground font-mono">{selectedMessage}</p>
+                  <p className="text-sm font-medium mb-1">Event ID</p>
+                  <p className="text-sm text-muted-foreground font-mono">{selectedMessage.id}</p>
                 </div>
                 <div>
-                  <p className="text-sm font-medium">Original Payload</p>
-                  <pre className="text-xs bg-muted p-4 rounded-md overflow-x-auto">
-                    {JSON.stringify({ eventId: selectedMessage, data: "..." }, null, 2)}
-                  </pre>
+                  <p className="text-sm font-medium mb-1">Original Topic</p>
+                  <p className="text-sm text-muted-foreground">{selectedMessage.originalTopic}</p>
                 </div>
-                <Button onClick={() => setSelectedMessage(null)} variant="outline" className="w-full">
-                  Close
-                </Button>
+                <div>
+                  <p className="text-sm font-medium mb-1">Failure Reason</p>
+                  <p className="text-sm text-muted-foreground">{selectedMessage.failureReason}</p>
+                </div>
+                <div>
+                  <p className="text-sm font-medium mb-1">Attempt Count</p>
+                  <p className="text-sm text-muted-foreground">{selectedMessage.attemptCount}</p>
+                </div>
+                <div>
+                  <p className="text-sm font-medium mb-1">Failed At</p>
+                  <p className="text-sm text-muted-foreground">
+                    {new Date(selectedMessage.failedAt).toLocaleString()}
+                  </p>
+                </div>
+                {selectedMessage.payload && (
+                  <div>
+                    <p className="text-sm font-medium mb-2">Original Payload</p>
+                    <pre className="text-xs bg-muted p-4 rounded-md overflow-x-auto whitespace-pre-wrap">
+                      {typeof selectedMessage.payload === 'string' 
+                        ? selectedMessage.payload 
+                        : JSON.stringify(selectedMessage.payload, null, 2)}
+                    </pre>
+                  </div>
+                )}
+                <div className="flex gap-2">
+                  <Button 
+                    onClick={() => {
+                      handleReplay(selectedMessage.id);
+                      setSelectedMessage(null);
+                    }}
+                    className="flex-1"
+                  >
+                    <RotateCw className="h-4 w-4 mr-2" />
+                    Replay Message
+                  </Button>
+                  <Button onClick={() => setSelectedMessage(null)} variant="outline" className="flex-1">
+                    Close
+                  </Button>
+                </div>
               </div>
             </CardContent>
           </Card>
